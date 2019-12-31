@@ -16,8 +16,8 @@ void runScenario(struct SimState *state) {
 
 void runScenarioDemo(struct SimState *state, unsigned int waitTimeMs) {
     struct timespec waitTime;
-    waitTime.tv_sec = waitTimeMs / 1000;
-    waitTime.tv_nsec = 10e6 * (waitTimeMs % 1000);
+    waitTime.tv_sec  = waitTimeMs / 1000;
+    waitTime.tv_nsec = (waitTimeMs % 1000) * 1000000L;
 
     while (state->maxActiveOrder) {
         printSimState(state);
@@ -49,6 +49,7 @@ void step(struct SimState *state) {
                                 state->cash += state->orders[i].quantity * state->priceFn(&(state->orders[i].symbol), state->time);
                                 state->orders[i].status = None; // delete this order once it executes
                             } // TODO: handle insufficient quantity case
+                            break;
                         }
                     }
                     // TODO: handle no position held case
@@ -67,7 +68,7 @@ void step(struct SimState *state) {
         --(state->maxActiveOrder);
     }
     while (state->maxActivePosition > 0 && 
-           state->orders[state->maxActivePosition - 1].quantity == 0) {
+           state->positions[state->maxActivePosition - 1].quantity == 0) {
         --(state->maxActivePosition);
     }
 }

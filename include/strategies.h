@@ -10,5 +10,6 @@
  */
 
 enum OrderStatus basicStrat1(struct SimState *state, struct Order *order);
+enum OrderStatus emaStrat(struct SimState *state, struct Order *order);
 
 #endif // ifndef STRATEGIES_H

@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-#define MINUTES_PER_STEP 30
+#define MINUTES_PER_STEP 1
 
 /**
  * Main execution loops

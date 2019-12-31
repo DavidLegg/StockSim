@@ -23,7 +23,7 @@ unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
     struct Prices *p = PRICE_CACHE;
     struct Prices *lruEntry = p;
 
-    while (p < PRICE_CACHE + PRICE_SERIES_LENGTH &&
+    while (p < PRICE_CACHE + PRICE_CACHE_ENTRIES &&
            p->symbol.id &&
            (p->symbol.id != symbol->id ||
             p->times[0] > time ||
@@ -33,7 +33,7 @@ unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
         }
         ++p;
     }
-    if (p >= PRICE_CACHE + PRICE_SERIES_LENGTH) {
+    if (p >= PRICE_CACHE + PRICE_CACHE_ENTRIES) {
         // No match found, no empty entry available.
         // Replace the LRU entry with needed chunk
         lruEntry->symbol.id = symbol->id;
@@ -68,6 +68,8 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
     const char fileFormat[] = "resources/gemini_%sUSD_2019_1min.csv";
     const unsigned int bufSize = 256;
     char buf[bufSize];
+    long prevLineStart, thisLineStart;
+    prevLineStart = thisLineStart = 0;
 
     // Make a null-terminated string:
     char symbolName[SYMBOL_LENGTH + 1];
@@ -81,8 +83,8 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
         exit(1);
     }
 
-    int time_col, price_col, col;
-    time_col = price_col = -1;
+    int timeCol, priceCol, col, maxCol;
+    timeCol = priceCol = -1;
 
     char *back, *front;
 
@@ -91,50 +93,73 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
     unsigned long loadedRows = 0;
 
     time_t rowTime;
-    int foundTime = 0;
 
     // Look for column header, and find timestamp & open columns
-    while ((time_col < 0 || price_col < 0) &&
+    while ((timeCol < 0 || priceCol < 0) &&
            fgets(buf, bufSize, fp)) {
         back = front = buf;
         col = 0;
         while (*back) {
             while (*front && *front != ',') ++front;
             if (!strncmp(back, "Unix Timestamp", front - back)) {
-                time_col = col;
+                timeCol = col;
             }
             if (!strncmp(back, "Open", front - back)) {
-                price_col = col;
+                priceCol = col;
             }
             back = ++front;
             ++col;
         }
+        prevLineStart = thisLineStart;
+        thisLineStart = ftell(fp);
+    }
+    maxCol = (timeCol < priceCol ? priceCol : timeCol);
+
+    // Skim forward through the file,
+    // looking for the desired time
+    while (fgets(buf, bufSize, fp)) {
+        back  = buf;
+        front = buf - 1;
+        col   = timeCol + 1;
+        while (*back && col) {
+            back = ++front;
+            while (*front && *front != ',') ++front;
+            --col;
+        }
+        if (!col) {
+            *front = 0;
+            sscanf(back, "%ld", &rowTime);
+            if (rowTime / 1000 >= time) {
+                // Found the first line that's at least the desired time
+                // Seek to the previous line (to catch a time prior to desired)
+                // Then move on to the reading phase.
+                fseek(fp, prevLineStart, SEEK_SET);
+                break;
+            }
+        }
+        prevLineStart = thisLineStart;
+        thisLineStart = ftell(fp);
     }
 
+    // Having adjusted the file pointer to the start
+    // of the desired data, read in as much as we can
     while (loadedRows < PRICE_SERIES_LENGTH &&
            fgets(buf, bufSize, fp)) {
         back = front = buf;
         col = 0;
-        while (*front) {
+        while (col <= maxCol && *front) {
             while (*front && *front != ',') ++front;
             *front = 0;
-            if (col == time_col) {
+            if (col == timeCol) {
                 sscanf(back, "%ld", &rowTime);
-                rowTime /= 1000;
-                if (foundTime || rowTime >= time) {
-                    *nextTime++ = rowTime;
-                    foundTime = 1;
-                } else {
-                    // Skip processing rest of row
-                    continue;
-                }
-            } else if (col == price_col && foundTime) {
+                *nextTime++ = rowTime / 1000;
+            } else if (col == priceCol) {
                 sscanf(back, "%u", nextPrice++);
-                ++loadedRows;
             } // else, not a column we care about, keep going
             back = ++front;
             ++col;
         }
+        ++loadedRows;
     }
 
     fclose(fp);

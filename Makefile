@@ -5,7 +5,7 @@ OBJDIR := obj
 INCDIR := include
 EXEC := stock-sim
 INC := -I $(INCDIR)
-CFLAGS := -Wall -Wextra -pedantic $(INC) $(STD)
+CFLAGS := -lm -Wall -Wextra -pedantic $(INC)
 
 SRCFILES := $(shell find $(SRCDIR) -type f -name *.c)
 OBJFILES := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCFILES))
@@ -31,7 +31,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 $(EXEC): $(OBJFILES)
-	$(CC) $^ -o $(BINDIR)/$@
+	$(CC) $^ -o $(BINDIR)/$@ $(CFLAGS)
 	@echo "---=== COMPILE SUCCESS ===---"
 
 run: all

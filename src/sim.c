@@ -16,7 +16,7 @@
 int main(int argc, char const *argv[])
 {
     struct tm simStartTime;
-    strptime("12/1/2019 13:00", "%m/%d/%Y%n%H:%M", &simStartTime);
+    strptime("11/1/2019 01:00", "%m/%d/%Y%n%H:%M", &simStartTime);
     struct SimState state;
     initSimState(&state, mktime(&simStartTime));
     state.cash = 100000;
@@ -25,9 +25,9 @@ int main(int argc, char const *argv[])
     printf("Adding orders...\n");
     union Symbol symbol;
     strncpy(symbol.name, "BTC", SYMBOL_LENGTH);
-    makeCustomOrder(&state, &symbol, 1, basicStrat1);
+    makeCustomOrder(&state, &symbol, 1, emaStrat);
     printf("Running scenario...\n");
-    // runScenarioDemo(&state, 1000);
+    // runScenarioDemo(&state, 100);
     printSimState(&state);
     runScenario(&state);
     printSimState(&state);

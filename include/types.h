@@ -9,6 +9,7 @@
  */
 
 #ifdef DEBUG
+#include <stdio.h>
 #define db_printf(format, ...) printf("DEBUG:%s:%d: " format, __BASE_FILE__, __LINE__, __VA_ARGS__)
 #else
 #define db_printf(format, ...) // delete db_printf on non-debug builds
