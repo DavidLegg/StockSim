@@ -8,28 +8,43 @@
  * Globals
  */
 
-static struct Prices PRICE_LIST[NUM_SYMBOLS];
-static int INITIALIZED_PRICE_LIST = 0;
+static struct Prices PRICE_CACHE[PRICE_CACHE_ENTRIES];
+static int INITIALIZED_PRICE_CACHE = 0;
+static unsigned long globalUsageCounter = 0;
 
 unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
-    if (!INITIALIZED_PRICE_LIST) {
-        for (unsigned long i = 0; i < NUM_SYMBOLS; ++i) {
-            PRICE_LIST[i].symbol.id = 0;
+    if (!INITIALIZED_PRICE_CACHE) {
+        for (unsigned long i = 0; i < PRICE_CACHE_ENTRIES; ++i) {
+            PRICE_CACHE[i].symbol.id = 0;
         }
-        INITIALIZED_PRICE_LIST = 1;
+        INITIALIZED_PRICE_CACHE = 1;
     }
 
-    struct Prices *p = PRICE_LIST;
-    while (p->symbol.id &&
-           p < PRICE_LIST + PRICE_DATA_LENGTH &&
-           p->symbol.id != symbol->id) ++p;
-    if (!p->symbol.id) {
+    struct Prices *p = PRICE_CACHE;
+    struct Prices *lruEntry = p;
+
+    while (p < PRICE_CACHE + PRICE_SERIES_LENGTH &&
+           p->symbol.id &&
+           (p->symbol.id != symbol->id ||
+            p->times[0] > time ||
+            p->times[p->validRows - 1] < time)) {
+        if (p->lastUsage < lruEntry->lastUsage) {
+            lruEntry = p;
+        }
+        ++p;
+    }
+    if (p >= PRICE_CACHE + PRICE_SERIES_LENGTH) {
+        // No match found, no empty entry available.
+        // Replace the LRU entry with needed chunk
+        lruEntry->symbol.id = symbol->id;
+        loadHistoricalPrice(lruEntry, time);
+        p = lruEntry;
+    } else if (!p->symbol.id) {
+        // No match found, empty entry available.
+        // Load that entry with needed chunk
         p->symbol.id = symbol->id;
         loadHistoricalPrice(p, time);
-    }
-    if (p->times[0] > time || p->times[p->validRows - 1] < time) {
-        loadHistoricalPrice(p, time);
-    }
+    } // else, match found, don't do anything
 
     time_t *mn, *mx, *split;
     mn = p->times;
@@ -45,6 +60,7 @@ unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
         }
     }
 
+    p->lastUsage = ++globalUsageCounter;
     return p->prices[mn - p->times];
 }
 
@@ -95,7 +111,7 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
         }
     }
 
-    while (loadedRows < PRICE_DATA_LENGTH &&
+    while (loadedRows < PRICE_SERIES_LENGTH &&
            fgets(buf, bufSize, fp)) {
         back = front = buf;
         col = 0;

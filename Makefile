@@ -5,7 +5,7 @@ OBJDIR := obj
 INCDIR := include
 EXEC := stock-sim
 INC := -I $(INCDIR)
-CFLAGS := -Wall -Wextra -pedantic -std=c99 $(INC) $(STD)
+CFLAGS := -Wall -Wextra -pedantic $(INC) $(STD)
 
 SRCFILES := $(shell find $(SRCDIR) -type f -name *.c)
 OBJFILES := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCFILES))

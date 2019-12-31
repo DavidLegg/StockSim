@@ -5,17 +5,18 @@
 #include "types.h"
 
 // 2^20
-#define PRICE_DATA_LENGTH 1048576
-#define NUM_SYMBOLS 64
+#define PRICE_SERIES_LENGTH 1048576
+#define PRICE_CACHE_ENTRIES 64
 
 /**
  * Structs
  */
 
 struct Prices {
-    time_t times[PRICE_DATA_LENGTH];
-    unsigned int prices[PRICE_DATA_LENGTH];
+    time_t times[PRICE_SERIES_LENGTH];
+    unsigned int prices[PRICE_SERIES_LENGTH];
     unsigned long validRows;
+    unsigned long lastUsage;
     union Symbol symbol;
 };
 

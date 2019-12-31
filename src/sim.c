@@ -7,6 +7,7 @@
 #include "types.h"
 #include "execution.h"
 #include "load_prices.h"
+#include "strategies.h"
 
 // unsigned int dummy_price(const union Symbol* symbol, const time_t time) {
 //     return 2000;
@@ -21,23 +22,11 @@ int main(int argc, char const *argv[])
     state.cash = 100000;
     state.priceFn = getHistoricalPrice;
     printf("Initialized state.\n");
-    printSimState(&state);
     printf("Adding orders...\n");
     union Symbol symbol;
     strncpy(symbol.name, "BTC", SYMBOL_LENGTH);
-    buy(&state, &symbol, 2);
-    sell(&state, &symbol, 1);
-    strncpy(symbol.name, "ETH", SYMBOL_LENGTH);
-    buy(&state, &symbol, 1);
-    printSimState(&state);
-    printf("Stepping...\n");
-    step(&state);
-    printSimState(&state);
-    step(&state);
-    step(&state);
-    step(&state);
-    step(&state);
-    printSimState(&state);
+    makeCustomOrder(&state, &symbol, 1, basicStrat1);
+    runScenarioDemo(&state, 500);
     return 0;
 }
 

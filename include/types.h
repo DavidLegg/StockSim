@@ -14,8 +14,8 @@
 #define SYMBOL_LENGTH 4
 #define SYMBOL_ID_TYPE uint32_t
 
+struct Order;
 struct SimState;
-
 
 
 /**
@@ -43,12 +43,16 @@ enum OrderStatus {
 
 enum OrderType {
     Buy,
-    Sell
+    Sell,
+    Custom
 };
+
+typedef enum OrderStatus OrderFn(struct SimState*, struct Order*);
 
 struct Order {
     enum OrderStatus status;
     enum OrderType type;
+    OrderFn *customFn;
     union Symbol symbol;
     unsigned int quantity;
 };

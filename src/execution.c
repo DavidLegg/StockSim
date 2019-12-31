@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "execution.h"
 
@@ -9,6 +10,18 @@
 
 void runScenario(struct SimState *state) {
     while (state->maxActiveOrder) {
+        step(state);
+    }
+}
+
+void runScenarioDemo(struct SimState *state, unsigned int waitTimeMs) {
+    struct timespec waitTime;
+    waitTime.tv_sec = waitTimeMs / 1000;
+    waitTime.tv_nsec = 10e6 * (waitTimeMs % 1000);
+
+    while (state->maxActiveOrder) {
+        printSimState(state);
+        nanosleep(&waitTime, NULL);
         step(state);
     }
 }
@@ -84,6 +97,7 @@ void buy(struct SimState *state, union Symbol *symbol, unsigned int quantity) {
     state->orders[state->maxActiveOrder].type      = Buy;
     state->orders[state->maxActiveOrder].symbol.id = symbol->id;
     state->orders[state->maxActiveOrder].quantity  = quantity;
+    state->orders[state->maxActiveOrder].customFn  = NULL;
     ++(state->maxActiveOrder);
 }
 
@@ -96,5 +110,24 @@ void sell(struct SimState *state, union Symbol *symbol, unsigned int quantity) {
     state->orders[state->maxActiveOrder].type      = Sell;
     state->orders[state->maxActiveOrder].symbol.id = symbol->id;
     state->orders[state->maxActiveOrder].quantity  = quantity;
+    state->orders[state->maxActiveOrder].customFn  = NULL;
+    ++(state->maxActiveOrder);
+}
+
+void makeCustomOrder(
+    struct SimState *state,
+    union Symbol *symbol,
+    unsigned int quantity,
+    OrderFn *customFn) {
+
+    if (state->maxActiveOrder >= MAX_ORDERS) {
+        fprintf(stderr, "No more orders available.\n");
+        exit(1);
+    }
+    state->orders[state->maxActiveOrder].status    = Active;
+    state->orders[state->maxActiveOrder].type      = Custom;
+    state->orders[state->maxActiveOrder].symbol.id = symbol->id;
+    state->orders[state->maxActiveOrder].quantity  = quantity;
+    state->orders[state->maxActiveOrder].customFn  = customFn;
     ++(state->maxActiveOrder);
 }
