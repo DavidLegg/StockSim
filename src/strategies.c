@@ -2,7 +2,7 @@
 #include "execution.h"
 
 enum OrderStatus basicStrat1(struct SimState *state, struct Order *order) {
-    static const int MAX_ITERS = 1;
+    static const int MAX_ITERS = 5;
     static int iters = 0;
     static int havePosition = 0;
     static unsigned int price;

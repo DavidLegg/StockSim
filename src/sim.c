@@ -26,7 +26,12 @@ int main(int argc, char const *argv[])
     union Symbol symbol;
     strncpy(symbol.name, "BTC", SYMBOL_LENGTH);
     makeCustomOrder(&state, &symbol, 1, basicStrat1);
-    runScenarioDemo(&state, 500);
+    printf("Running scenario...\n");
+    // runScenarioDemo(&state, 1000);
+    printSimState(&state);
+    runScenario(&state);
+    printSimState(&state);
+    printf("Scenario complete.\n");
     return 0;
 }
 

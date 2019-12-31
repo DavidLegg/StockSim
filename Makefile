@@ -15,7 +15,7 @@ OBJFILES := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCFILES))
 
 all: makedirs $(EXEC)
 
-debug: CFLAGS += -g
+debug: CFLAGS += -g -DDEBUG
 debug: all
 
 perf: CFLAGS += -O3

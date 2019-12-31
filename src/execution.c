@@ -24,6 +24,7 @@ void runScenarioDemo(struct SimState *state, unsigned int waitTimeMs) {
         nanosleep(&waitTime, NULL);
         step(state);
     }
+    printSimState(state);
 }
 
 void step(struct SimState *state) {
@@ -52,6 +53,9 @@ void step(struct SimState *state) {
                     }
                     // TODO: handle no position held case
                     break;
+                case Custom:
+                    state->orders[i].status = state->orders[i].customFn(state, state->orders + i);
+                    break;
                 default:
                     fprintf(stderr, "Unhandled order type %d.\n", state->orders[i].type);
                     exit(1);
@@ -59,11 +63,11 @@ void step(struct SimState *state) {
         }
     }
     while (state->maxActiveOrder > 0 && 
-           state->orders[state->maxActiveOrder].status != Active) {
+           state->orders[state->maxActiveOrder - 1].status != Active) {
         --(state->maxActiveOrder);
     }
     while (state->maxActivePosition > 0 && 
-           state->orders[state->maxActivePosition].quantity == 0) {
+           state->orders[state->maxActivePosition - 1].quantity == 0) {
         --(state->maxActivePosition);
     }
 }

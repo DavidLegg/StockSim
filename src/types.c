@@ -68,8 +68,8 @@ void printSimState(struct SimState *state) {
         for (unsigned int i = 0; i < state->maxActiveOrder; ++i) {
             if (state->orders[i].status != None) {
                 printf("%s%s%s ", indent, indent, textOrderType(state->orders[i].type));
-                for (unsigned int j = 0; j < SYMBOL_LENGTH; ++j) {
-                    printf("%c", state->orders[i].symbol.name[j] ? state->orders[i].symbol.name[j] : ' ');
+                for (unsigned int j = 0; j < SYMBOL_LENGTH && state->orders[i].symbol.name[j]; ++j) {
+                    printf("%c", state->orders[i].symbol.name[j]);
                 }
                 printf(" x %d\n", state->orders[i].quantity);
             }
@@ -98,6 +98,8 @@ const char *textOrderType(const enum OrderType type) {
             return "Buy";
         case Sell:
             return "Sell";
+        case Custom:
+            return "Custom";
         default:
             return "Unknown";
     }
