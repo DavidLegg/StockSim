@@ -4,8 +4,9 @@ BINDIR := bin
 OBJDIR := obj
 INCDIR := include
 EXEC := stock-sim
+LINK := -lm -lpthread -lrt
 INC := -I $(INCDIR)
-CFLAGS := -lm -Wall -Wextra -pedantic $(INC)
+CFLAGS := $(LINK) -Wall -Wextra -pedantic $(INC)
 
 SRCFILES := $(shell find $(SRCDIR) -type f -name *.c)
 OBJFILES := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCFILES))

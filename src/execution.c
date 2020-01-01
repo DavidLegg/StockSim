@@ -34,25 +34,37 @@ void step(struct SimState *state) {
         if (state->orders[i].status == Active) {
             switch (state->orders[i].type) {
                 case Buy:
+                    db_printf("Placing buy, %s x %d\n", state->orders[i].symbol.name, state->orders[i].quantity);
                     transactionCost = state->orders[i].quantity * state->priceFn(&(state->orders[i].symbol), state->time);
                     if (state->cash > transactionCost) {
                         state->cash -= transactionCost;
                         addPosition(state, &(state->orders[i].symbol), state->orders[i].quantity);
                         state->orders[i].status = None; // delete this order once it executes
-                    } // TODO: handle insufficient funds case?
+                    } else {
+                        fprintf(stderr, "Insufficient cash.\n");
+                        exit(1);
+                    }
                     break;
                 case Sell:
-                    for (unsigned int j = 0; j < state->maxActivePosition; ++j) {
+                    db_printf("Placing sell, %s x %d\n", state->orders[i].symbol.name, state->orders[i].quantity);
+                    unsigned int j;
+                    for (j = 0; j < state->maxActivePosition; ++j) {
                         if (state->positions[j].symbol.id == state->orders[i].symbol.id) {
                             if (state->positions[j].quantity >= state->orders[i].quantity) {
                                 state->positions[j].quantity -= state->orders[i].quantity;
                                 state->cash += state->orders[i].quantity * state->priceFn(&(state->orders[i].symbol), state->time);
                                 state->orders[i].status = None; // delete this order once it executes
-                            } // TODO: handle insufficient quantity case
+                            } else {
+                                fprintf(stderr, "Insufficient shares.\n");
+                                exit(1);
+                            }
                             break;
                         }
                     }
-                    // TODO: handle no position held case
+                    if (j >= state->maxActivePosition) {
+                        fprintf(stderr, "Insufficient shares.\n");
+                        exit(1);
+                    }
                     break;
                 case Custom:
                     state->orders[i].status = state->orders[i].customFn(state, state->orders + i);

@@ -8,6 +8,7 @@ void initSimState(struct SimState *state, time_t startTime) {
     state->maxActivePosition = 0;
     state->cash = 0;
     state->priceFn = NULL;
+    state->aux = NULL;
 
     for (int i = 0; i < MAX_ORDERS; ++i) {
         initOrder( &(state->orders[i]) );

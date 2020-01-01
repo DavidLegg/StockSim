@@ -65,13 +65,13 @@ struct Order {
     enum OrderType type;
     OrderFn *customFn;
     union Symbol symbol;
-    unsigned int quantity;
+    int quantity;
 };
 
 // Positions
 
 struct Position {
-    unsigned int quantity;
+    int quantity;
     union Symbol symbol;
 };
 
@@ -85,6 +85,7 @@ struct SimState {
     unsigned int maxActiveOrder;
     unsigned int maxActivePosition;
     time_t time;
+    void *aux;
 };
 
 

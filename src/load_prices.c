@@ -11,40 +11,62 @@
 static struct Prices PRICE_CACHE[PRICE_CACHE_ENTRIES];
 static int INITIALIZED_PRICE_CACHE = 0;
 static unsigned long globalUsageCounter = 0;
+static sem_t globalUsageCounterLock;
 
 unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
     if (!INITIALIZED_PRICE_CACHE) {
         for (unsigned long i = 0; i < PRICE_CACHE_ENTRIES; ++i) {
             PRICE_CACHE[i].symbol.id = 0;
+            initReaderWriterLock(&(PRICE_CACHE[i].readerWriterLock));
         }
+        sem_init(&globalUsageCounterLock, 0, 1);
         INITIALIZED_PRICE_CACHE = 1;
     }
 
     struct Prices *p = PRICE_CACHE;
-    struct Prices *lruEntry = p;
+    struct Prices *lruEntry = NULL;
+    unsigned long lrUsage;
+    int lockedAsWriter = 0;
 
-    while (p < PRICE_CACHE + PRICE_CACHE_ENTRIES &&
-           p->symbol.id &&
-           (p->symbol.id != symbol->id ||
-            p->times[0] > time ||
-            p->times[p->validRows - 1] < time)) {
-        if (p->lastUsage < lruEntry->lastUsage) {
-            lruEntry = p;
+    // Find correct entry, if possible
+    while (p < PRICE_CACHE + PRICE_CACHE_ENTRIES) {
+        readerWait(&(p->readerWriterLock));
+        if (!p->symbol.id ||
+           (p->symbol.id == symbol->id &&
+            p->times[0] <= time &&
+            p->times[p->validRows - 1] >= time)) {
+            // Either we ran out of filled slots,
+            // or we found the entry we want to read.
+            break;
         }
+        if (!lruEntry || p->lastUsage < lrUsage) {
+            lruEntry = p;
+            lrUsage  = p->lastUsage;
+        }
+        readerPost(&(p->readerWriterLock));
         ++p;
     }
+
     if (p >= PRICE_CACHE + PRICE_CACHE_ENTRIES) {
         // No match found, no empty entry available.
         // Replace the LRU entry with needed chunk
+        p = lruEntry;
+        lockedAsWriter = 1;
+        writerWait(&(p->readerWriterLock));
         lruEntry->symbol.id = symbol->id;
         loadHistoricalPrice(lruEntry, time);
-        p = lruEntry;
     } else if (!p->symbol.id) {
         // No match found, empty entry available.
         // Load that entry with needed chunk
+        readerPost(&(p->readerWriterLock));
+        lockedAsWriter = 1;
+        writerWait(&(p->readerWriterLock));
         p->symbol.id = symbol->id;
         loadHistoricalPrice(p, time);
     } // else, match found, don't do anything
+    // At this point, no matter which path was taken,
+    // p points to a cache entry with the correct data,
+    // and we have a lock on that resource.
 
     time_t *mn, *mx, *split;
     mn = p->times;
@@ -60,8 +82,16 @@ unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
         }
     }
 
+    sem_wait(&globalUsageCounterLock);
     p->lastUsage = ++globalUsageCounter;
-    return p->prices[mn - p->times];
+    sem_post(&globalUsageCounterLock);
+    unsigned long output = p->prices[mn - p->times];
+    if (lockedAsWriter) {
+        writerPost(&(p->readerWriterLock));
+    } else {
+        readerPost(&(p->readerWriterLock));
+    }
+    return output;
 }
 
 void loadHistoricalPrice(struct Prices *p, const time_t time) {
@@ -164,4 +194,36 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
 
     fclose(fp);
     p->validRows = loadedRows;
+}
+
+void initReaderWriterLock(struct readerWriterLock *lock) {
+    lock->readCount = 0;
+    sem_init(&(lock->resourceLock), 0, 1);
+    sem_init(&(lock->readCountLock), 0, 1);
+}
+
+void readerWait(struct readerWriterLock *lock) {
+    sem_wait(&(lock->readCountLock));
+    ++(lock->readCount);
+    if (lock->readCount == 1) {
+        sem_wait(&(lock->resourceLock));
+    }
+    sem_post(&(lock->readCountLock));
+}
+
+void readerPost(struct readerWriterLock *lock) {
+    sem_wait(&(lock->readCountLock));
+    --(lock->readCount);
+    if (lock->readCount == 0) {
+        sem_post(&(lock->resourceLock));
+    }
+    sem_post(&(lock->readCountLock));
+}
+
+void writerWait(struct readerWriterLock *lock) {
+    sem_wait(&(lock->resourceLock));
+}
+
+void writerPost(struct readerWriterLock *lock) {
+    sem_post(&(lock->resourceLock));
 }
