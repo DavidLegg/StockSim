@@ -10,12 +10,12 @@
 
 static struct Prices PRICE_CACHE[PRICE_CACHE_ENTRIES];
 static int INITIALIZED_PRICE_CACHE = 0;
-static unsigned long globalUsageCounter = 0;
+static long globalUsageCounter = 0;
 static sem_t globalUsageCounterLock;
 
-unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
+int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
     if (!INITIALIZED_PRICE_CACHE) {
-        for (unsigned long i = 0; i < PRICE_CACHE_ENTRIES; ++i) {
+        for (long i = 0; i < PRICE_CACHE_ENTRIES; ++i) {
             PRICE_CACHE[i].symbol.id = 0;
             initReaderWriterLock(&(PRICE_CACHE[i].readerWriterLock));
         }
@@ -25,7 +25,7 @@ unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
 
     struct Prices *p = PRICE_CACHE;
     struct Prices *lruEntry = NULL;
-    unsigned long lrUsage;
+    long lrUsage;
     int lockedAsWriter = 0;
 
     // Find correct entry, if possible
@@ -85,7 +85,7 @@ unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
     sem_wait(&globalUsageCounterLock);
     p->lastUsage = ++globalUsageCounter;
     sem_post(&globalUsageCounterLock);
-    unsigned long output = p->prices[mn - p->times];
+    long output = p->prices[mn - p->times];
     if (lockedAsWriter) {
         writerPost(&(p->readerWriterLock));
     } else {
@@ -96,8 +96,9 @@ unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time) {
 
 void loadHistoricalPrice(struct Prices *p, const time_t time) {
     const char fileFormat[] = "resources/gemini_%sUSD_2019_1min.csv";
-    const unsigned int bufSize = 256;
+    const int bufSize = 256;
     char buf[bufSize];
+    memset(buf, 0, bufSize);
     long prevLineStart, thisLineStart;
     prevLineStart = thisLineStart = 0;
 
@@ -119,8 +120,8 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
     char *back, *front;
 
     time_t *nextTime = p->times;
-    unsigned int *nextPrice = p->prices;
-    unsigned long loadedRows = 0;
+    int *nextPrice = p->prices;
+    long loadedRows = 0;
 
     time_t rowTime;
 
@@ -184,7 +185,7 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
                 sscanf(back, "%ld", &rowTime);
                 *nextTime++ = rowTime / 1000;
             } else if (col == priceCol) {
-                sscanf(back, "%u", nextPrice++);
+                sscanf(back, "%d", nextPrice++);
             } // else, not a column we care about, keep going
             back = ++front;
             ++col;

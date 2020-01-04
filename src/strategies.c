@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <math.h>
 
 #include "strategies.h"
@@ -7,7 +8,7 @@ enum OrderStatus basicStrat1(struct SimState *state, struct Order *order) {
     static const int MAX_ITERS = 5;
     static int iters = 0;
     static int havePosition = 0;
-    static unsigned int price;
+    static int price;
 
     if (!havePosition) {
         price = state->priceFn(&(order->symbol), state->time);
@@ -25,40 +26,51 @@ enum OrderStatus basicStrat1(struct SimState *state, struct Order *order) {
     return Active;
 }
 
-enum OrderStatus emaStrat(struct SimState *state, struct Order *order) {
-    static const unsigned int MAX_ITERS = 100;
-    static const unsigned int PERIOD = 120;
-    static double discount;
-    discount = pow(0.01, 1.0 / PERIOD);
-    static unsigned int iters = 0;
-    static int havePosition = 0;
-    static double avgPrice = 0.0;
-    static unsigned int numSamples = 0;
-    static unsigned int boughtPrice;
-    static unsigned int price;
+struct emaStratAux {
+    time_t timeHorizon;
+    int havePosition;
+    double avgPrice;
+    int numSamples;
+    int boughtPrice;
+};
 
-    price = state->priceFn(&(order->symbol), state->time);
-    avgPrice = avgPrice * discount + price * (1 - discount);
-    if (numSamples < PERIOD) {
-        ++numSamples;
-    } else if (!havePosition && price < 0.9999*avgPrice) {
+enum OrderStatus emaStrat(struct SimState *state, struct Order *order) {
+    static const long TIME_LENGTH = 30*24*60*60; // 30 days
+    static const int OBSERVATION_PERIOD = 240;
+    static double DISCOUNT = 0.9623506263980885; // 0.01^(1/120)
+
+    struct emaStratAux *aux = (struct emaStratAux *)(order->aux);
+    if (!order->aux) {
+        order->aux = malloc(sizeof(struct emaStratAux));
+        aux = (struct emaStratAux *)(order->aux);
+        aux->timeHorizon = state->time + TIME_LENGTH;
+        aux->havePosition = 0;
+        aux->avgPrice = 0.0;
+        aux->numSamples = 0;
+    }
+
+    if (state->time >= aux->timeHorizon) {
+        if (aux->havePosition) {
+            sell(state, &(order->symbol), order->quantity);
+        }
+        free(order->aux);
+        return None;
+    }
+
+    int price = state->priceFn(&(order->symbol), state->time);
+    aux->avgPrice = aux->avgPrice * DISCOUNT + price * (1 - DISCOUNT);
+    if (aux->numSamples < OBSERVATION_PERIOD) {
+        ++(aux->numSamples);
+    } else if (!aux->havePosition && price < 0.9999*aux->avgPrice && 10 * price * order->quantity <= 9 * state->cash) {
         buy(state, &(order->symbol), order->quantity);
-        havePosition = 1;
-        boughtPrice = price;
-    } else if (havePosition && price > 1.0001*boughtPrice) {
+        aux->havePosition = 1;
+        aux->boughtPrice  = price;
+    } else if (aux->havePosition && price > 1.0001*aux->boughtPrice) {
         sell(state, &(order->symbol), order->quantity);
-        havePosition = 0;
-        ++iters;
-        if (iters >= MAX_ITERS) {
-            return None;
-        }
-    } else if (havePosition && price < 0.9999*boughtPrice) {
+        aux->havePosition = 0;
+    } else if (aux->havePosition && price < 0.9999*aux->boughtPrice) {
         sell(state, &(order->symbol), order->quantity);
-        havePosition = 0;
-        ++iters;
-        if (iters >= MAX_ITERS) {
-            return None;
-        }
+        aux->havePosition = 0;
     }
 
     return Active;

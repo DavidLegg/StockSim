@@ -31,7 +31,7 @@ struct JobQueue {
     struct SimState *results[JOB_QUEUE_LENGTH];
     sem_t jobSlotsAvailable, jobsAvailable, nextJobLock,
           resultSlotsAvailable, resultsAvailable, nextResultSlotLock;
-    unsigned int nextJobSlot, nextJob, nextResultSlot, nextResult;
+    int nextJobSlot, nextJob, nextResultSlot, nextResult;
 };
 
 /**
@@ -55,7 +55,7 @@ struct SimState *getJobResult();
 //   Collects the final worth of each scenario, returning an
 //   array, ordered by time.
 // Puts one-after-the-end location into end
-unsigned int *runTimes(struct SimState *baseScenario, time_t startTime, time_t endTime, unsigned long skipSeconds, unsigned int **array_end);
+int *runTimes(struct SimState *baseScenario, time_t startTime, time_t endTime, long skipSeconds, int **array_end);
 
 /**
  * Helpers

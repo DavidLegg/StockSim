@@ -74,7 +74,7 @@ struct runTimesArgs {
     struct SimState *slots[JOB_QUEUE_LENGTH];
     sem_t slotsAvailable;
     long numberScenarios;
-    unsigned int *results;
+    int *results;
 };
 
 void *runTimesResults(void *voidArgs) {
@@ -87,22 +87,25 @@ void *runTimesResults(void *voidArgs) {
         args->slots[resultsCollected % JOB_QUEUE_LENGTH] = scenario;
         sem_post(&(args->slotsAvailable));
         ++resultsCollected;
+        if (resultsCollected % 100 == 0) {
+            printf("%ld/%ld (%.0f%%)\n", resultsCollected, args->numberScenarios, 100.0 * resultsCollected / args->numberScenarios);
+        }
     }
     return NULL;
 }
 
-unsigned int *runTimes(
+int *runTimes(
     struct SimState *baseScenario,
     time_t startTime,
     time_t endTime,
-    unsigned long skipSeconds,
-    unsigned int **array_end) {
+    long skipSeconds,
+    int **array_end) {
     struct runTimesArgs args;
     args.numberScenarios = (endTime - startTime) / skipSeconds;
-    args.results = malloc(sizeof(unsigned int) * args.numberScenarios);
+    args.results = malloc(sizeof(int) * args.numberScenarios);
     *array_end = args.results + args.numberScenarios;
     struct SimState scenarios[JOB_QUEUE_LENGTH];
-    unsigned int nextAvailable = 0;
+    int nextAvailable = 0;
     sem_init(&(args.slotsAvailable), 0, JOB_QUEUE_LENGTH);
     pthread_t resultsThread;
 
@@ -114,7 +117,7 @@ unsigned int *runTimes(
     pthread_create(&resultsThread, NULL, runTimesResults, &args);
 
     // Write jobs into slots as they become available
-    for (unsigned int *p = args.results; startTime < endTime; startTime += skipSeconds, ++p) {
+    for (int *p = args.results; startTime < endTime; startTime += skipSeconds, ++p) {
         sem_wait(&(args.slotsAvailable));
         *(args.slots[nextAvailable]) = *baseScenario;
         args.slots[nextAvailable]->time = startTime;

@@ -21,9 +21,9 @@ void initSimState(struct SimState *state, time_t startTime) {
 void initOrder(struct Order *order) {
     order->status = None;
     order->type = Buy;
-    for (int i = 0; i < SYMBOL_LENGTH; ++i) {
-        order->symbol.name[i] = 0;
-    }
+    order->customFn = NULL;
+    order->aux = NULL;
+    order->symbol.id = 0;
     order->quantity = 0;
 }
 
@@ -42,15 +42,15 @@ void printSimState(struct SimState *state) {
         indent, timeBuffer,
         indent, state->cash / 100.0);
 
-    unsigned long worth = state->cash;
-    unsigned long positionWorth;
+    long worth = state->cash;
+    long positionWorth;
 
     if (state->maxActivePosition) {
         printf("%sPositions:\n", indent);
-        for (unsigned int i = 0; i < state->maxActivePosition; ++i) {
+        for (int i = 0; i < state->maxActivePosition; ++i) {
             if (state->positions[i].quantity) {
                 printf("%s%s", indent, indent);
-                for (unsigned int j = 0; j < SYMBOL_LENGTH && state->positions[i].symbol.name[j]; ++j) {
+                for (int j = 0; j < SYMBOL_LENGTH && state->positions[i].symbol.name[j]; ++j) {
                     printf("%c", state->positions[i].symbol.name[j]);
                 }
                 positionWorth = state->positions[i].quantity * state->priceFn(&(state->positions[i].symbol), state->time);
@@ -66,10 +66,10 @@ void printSimState(struct SimState *state) {
 
     if (state->maxActiveOrder) {
         printf("%sOrders:\n", indent);
-        for (unsigned int i = 0; i < state->maxActiveOrder; ++i) {
+        for (int i = 0; i < state->maxActiveOrder; ++i) {
             if (state->orders[i].status != None) {
                 printf("%s%s%s ", indent, indent, textOrderType(state->orders[i].type));
-                for (unsigned int j = 0; j < SYMBOL_LENGTH && state->orders[i].symbol.name[j]; ++j) {
+                for (int j = 0; j < SYMBOL_LENGTH && state->orders[i].symbol.name[j]; ++j) {
                     printf("%c", state->orders[i].symbol.name[j]);
                 }
                 printf(" x %d\n", state->orders[i].quantity);

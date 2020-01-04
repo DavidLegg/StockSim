@@ -43,7 +43,7 @@ union Symbol {
 };
 
 // returns price as number of cents
-typedef unsigned int (*GetPriceFn)(const union Symbol*, const time_t time);
+typedef int (*GetPriceFn)(const union Symbol*, const time_t time);
 
 // Orders
 
@@ -64,6 +64,7 @@ struct Order {
     enum OrderStatus status;
     enum OrderType type;
     OrderFn *customFn;
+    void *aux;
     union Symbol symbol;
     int quantity;
 };
@@ -82,8 +83,8 @@ struct SimState {
     struct Position positions[MAX_POSITIONS];
     GetPriceFn priceFn;
     long cash;
-    unsigned int maxActiveOrder;
-    unsigned int maxActivePosition;
+    int maxActiveOrder;
+    int maxActivePosition;
     time_t time;
     void *aux;
 };

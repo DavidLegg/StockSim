@@ -23,9 +23,9 @@ struct readerWriterLock {
 struct Prices {
     struct readerWriterLock readerWriterLock;
     time_t times[PRICE_SERIES_LENGTH];
-    unsigned int prices[PRICE_SERIES_LENGTH];
-    unsigned long validRows;
-    unsigned long lastUsage;
+    int prices[PRICE_SERIES_LENGTH];
+    long validRows;
+    long lastUsage;
     union Symbol symbol;
 };
 // TODO: add synchronization
@@ -34,7 +34,7 @@ struct Prices {
  * Public Accessors
  */
 
-unsigned int getHistoricalPrice(const union Symbol *symbol, const time_t time);
+int getHistoricalPrice(const union Symbol *symbol, const time_t time);
 
 /**
  * Helpers

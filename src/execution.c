@@ -14,7 +14,7 @@ void runScenario(struct SimState *state) {
     }
 }
 
-void runScenarioDemo(struct SimState *state, unsigned int waitTimeMs) {
+void runScenarioDemo(struct SimState *state, int waitTimeMs) {
     struct timespec waitTime;
     waitTime.tv_sec  = waitTimeMs / 1000;
     waitTime.tv_nsec = (waitTimeMs % 1000) * 1000000L;
@@ -30,7 +30,7 @@ void runScenarioDemo(struct SimState *state, unsigned int waitTimeMs) {
 void step(struct SimState *state) {
     state->time += (MINUTES_PER_STEP * 60);
     long transactionCost = 0;
-    for (unsigned int i = 0; i < state->maxActiveOrder; ++i) {
+    for (int i = 0; i < state->maxActiveOrder; ++i) {
         if (state->orders[i].status == Active) {
             switch (state->orders[i].type) {
                 case Buy:
@@ -47,7 +47,7 @@ void step(struct SimState *state) {
                     break;
                 case Sell:
                     db_printf("Placing sell, %s x %d\n", state->orders[i].symbol.name, state->orders[i].quantity);
-                    unsigned int j;
+                    int j;
                     for (j = 0; j < state->maxActivePosition; ++j) {
                         if (state->positions[j].symbol.id == state->orders[i].symbol.id) {
                             if (state->positions[j].quantity >= state->orders[i].quantity) {
@@ -89,8 +89,8 @@ void step(struct SimState *state) {
  * Single-Transaction helpers
  */
 
-void addPosition(struct SimState *state, union Symbol *symbol, unsigned int quantity) {
-    unsigned int i;
+void addPosition(struct SimState *state, union Symbol *symbol, int quantity) {
+    int i;
     for (i = 0; i < state->maxActivePosition; ++i) {
         if (state->positions[i].symbol.id == symbol->id) break;
     }
@@ -105,7 +105,7 @@ void addPosition(struct SimState *state, union Symbol *symbol, unsigned int quan
     }
 }
 
-void buy(struct SimState *state, union Symbol *symbol, unsigned int quantity) {
+void buy(struct SimState *state, union Symbol *symbol, int quantity) {
     if (state->maxActiveOrder >= MAX_ORDERS) {
         fprintf(stderr, "No more orders available.\n");
         exit(1);
@@ -118,7 +118,7 @@ void buy(struct SimState *state, union Symbol *symbol, unsigned int quantity) {
     ++(state->maxActiveOrder);
 }
 
-void sell(struct SimState *state, union Symbol *symbol, unsigned int quantity) {
+void sell(struct SimState *state, union Symbol *symbol, int quantity) {
     if (state->maxActiveOrder >= MAX_ORDERS) {
         fprintf(stderr, "No more orders available.\n");
         exit(1);
@@ -134,7 +134,7 @@ void sell(struct SimState *state, union Symbol *symbol, unsigned int quantity) {
 void makeCustomOrder(
     struct SimState *state,
     union Symbol *symbol,
-    unsigned int quantity,
+    int quantity,
     OrderFn *customFn) {
 
     if (state->maxActiveOrder >= MAX_ORDERS) {
