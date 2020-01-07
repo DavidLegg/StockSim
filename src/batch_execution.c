@@ -31,7 +31,6 @@ void initJobQueue(void) {
 
 void addJob(struct SimState *scenario) {
     sem_wait(&JOB_QUEUE.jobSlotsAvailable);
-    db_printf("Adding Job, Slot %d\n", JOB_QUEUE.nextJobSlot);
     JOB_QUEUE.scenarios[JOB_QUEUE.nextJobSlot] = scenario;
     JOB_QUEUE.nextJobSlot = (JOB_QUEUE.nextJobSlot + 1) % JOB_QUEUE_LENGTH;
     sem_post(&JOB_QUEUE.jobsAvailable);
@@ -39,7 +38,6 @@ void addJob(struct SimState *scenario) {
 
 struct SimState *getJobResult() {
     sem_wait(&JOB_QUEUE.resultsAvailable);
-    db_printf("Getting Result, Slot %d\n", JOB_QUEUE.nextResult);
     struct SimState *result = JOB_QUEUE.results[JOB_QUEUE.nextResult];
     JOB_QUEUE.nextResult = (JOB_QUEUE.nextResult + 1) % JOB_QUEUE_LENGTH;
     sem_post(&JOB_QUEUE.resultSlotsAvailable);
@@ -53,7 +51,6 @@ void *runJobs(__attribute__ ((unused)) void *dummy) {
     while (1) {
         sem_wait(&JOB_QUEUE.jobsAvailable);
         sem_wait(&JOB_QUEUE.nextJobLock);
-        db_printf("Running Job, Slot %d\n", JOB_QUEUE.nextJob);
         scenario = JOB_QUEUE.scenarios[JOB_QUEUE.nextJob];
         JOB_QUEUE.nextJob = (JOB_QUEUE.nextJob + 1) % JOB_QUEUE_LENGTH;
         sem_post(&JOB_QUEUE.nextJobLock);
@@ -61,7 +58,6 @@ void *runJobs(__attribute__ ((unused)) void *dummy) {
         runScenario(scenario);
         sem_wait(&JOB_QUEUE.resultSlotsAvailable);
         sem_wait(&JOB_QUEUE.nextResultSlotLock);
-        db_printf("Posting Results, Slot %d\n", JOB_QUEUE.nextResultSlot);
         JOB_QUEUE.results[JOB_QUEUE.nextResultSlot] = scenario;
         JOB_QUEUE.nextResultSlot = (JOB_QUEUE.nextResultSlot + 1) % JOB_QUEUE_LENGTH;
         sem_post(&JOB_QUEUE.nextResultSlotLock);
@@ -74,7 +70,6 @@ struct runTimesArgs {
     struct SimState *slots[JOB_QUEUE_LENGTH];
     sem_t slotsAvailable;
     long numberScenarios;
-    int *results;
 };
 
 void *runTimesResults(void *voidArgs) {
@@ -83,7 +78,7 @@ void *runTimesResults(void *voidArgs) {
     struct SimState *scenario;
     while (resultsCollected < args->numberScenarios) {
         scenario = getJobResult();
-        args->results[resultsCollected] = scenario->cash;
+        **(int**)(scenario->aux) = scenario->cash;
         args->slots[resultsCollected % JOB_QUEUE_LENGTH] = scenario;
         sem_post(&(args->slotsAvailable));
         ++resultsCollected;
@@ -101,9 +96,9 @@ int *runTimes(
     long skipSeconds,
     int **array_end) {
     struct runTimesArgs args;
-    args.numberScenarios = (endTime - startTime) / skipSeconds;
-    args.results = malloc(sizeof(int) * args.numberScenarios);
-    *array_end = args.results + args.numberScenarios;
+    args.numberScenarios = 1 + (endTime - startTime) / skipSeconds;
+    int *results = malloc(sizeof(int) * args.numberScenarios);
+    *array_end = results + args.numberScenarios;
     struct SimState scenarios[JOB_QUEUE_LENGTH];
     int nextAvailable = 0;
     sem_init(&(args.slotsAvailable), 0, JOB_QUEUE_LENGTH);
@@ -117,16 +112,54 @@ int *runTimes(
     pthread_create(&resultsThread, NULL, runTimesResults, &args);
 
     // Write jobs into slots as they become available
-    for (int *p = args.results; startTime < endTime; startTime += skipSeconds, ++p) {
+    for (int *p = results; startTime <= endTime; startTime += skipSeconds, ++p) {
         sem_wait(&(args.slotsAvailable));
-        *(args.slots[nextAvailable]) = *baseScenario;
+        copySimState(args.slots[nextAvailable], baseScenario);
         args.slots[nextAvailable]->time = startTime;
-        args.slots[nextAvailable]->aux  = p;
+        *(int**)args.slots[nextAvailable]->aux = p;
         addJob(args.slots[nextAvailable]);
         nextAvailable = (nextAvailable + 1) % JOB_QUEUE_LENGTH;
     }
 
-    return (pthread_join(resultsThread, NULL) ? NULL : args.results);
+    return (pthread_join(resultsThread, NULL) ? NULL : results);
 }
 
-// TODO: test
+int *runTimesMulti(
+    struct SimState *baseScenarios,
+    int n,
+    time_t startTime,
+    time_t endTime,
+    long skipSeconds,
+    int *numberTimes) {
+
+    struct runTimesArgs args;
+    *numberTimes = 1 + (endTime - startTime) / skipSeconds;
+    args.numberScenarios = n * (*numberTimes);
+    int *results = malloc(sizeof(int) * args.numberScenarios);
+    struct SimState scenarios[JOB_QUEUE_LENGTH];
+    int nextAvailable = 0;
+    sem_init(&(args.slotsAvailable), 0, JOB_QUEUE_LENGTH);
+    pthread_t resultsThread;
+
+    // Load up the initial slots
+    for (int i = 0; i < JOB_QUEUE_LENGTH; ++i) {
+        args.slots[i] = scenarios + i;
+    }
+
+    pthread_create(&resultsThread, NULL, runTimesResults, &args);
+
+    // Write jobs into slots as they become available
+    for (int *p = results; startTime <= endTime; startTime += skipSeconds, ++p) {
+        for (int i = 0; i < n; ++i) {
+            sem_wait(&(args.slotsAvailable));
+            copySimState(args.slots[nextAvailable], baseScenarios + i);
+            args.slots[nextAvailable]->time = startTime;
+            *(int**)args.slots[nextAvailable]->aux = p + i * (*numberTimes);
+            addJob(args.slots[nextAvailable]);
+            nextAvailable = (nextAvailable + 1) % JOB_QUEUE_LENGTH;
+        }
+    }
+
+    return (pthread_join(resultsThread, NULL) ? NULL : results);
+}
+

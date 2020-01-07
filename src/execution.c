@@ -4,6 +4,8 @@
 
 #include "execution.h"
 
+int TRANSACTION_FEE = 25;
+
 /**
  * Main execution loops
  */
@@ -34,9 +36,9 @@ void step(struct SimState *state) {
         if (state->orders[i].status == Active) {
             switch (state->orders[i].type) {
                 case Buy:
-                    db_printf("Placing buy, %s x %d\n", state->orders[i].symbol.name, state->orders[i].quantity);
                     transactionCost = state->orders[i].quantity * state->priceFn(&(state->orders[i].symbol), state->time);
-                    if (state->cash > transactionCost) {
+                    transactionCost += transactionCost * TRANSACTION_FEE / 10000;
+                    if (state->cash >= transactionCost) {
                         state->cash -= transactionCost;
                         addPosition(state, &(state->orders[i].symbol), state->orders[i].quantity);
                         state->orders[i].status = None; // delete this order once it executes
@@ -46,13 +48,14 @@ void step(struct SimState *state) {
                     }
                     break;
                 case Sell:
-                    db_printf("Placing sell, %s x %d\n", state->orders[i].symbol.name, state->orders[i].quantity);
-                    int j;
+                    {int j;
                     for (j = 0; j < state->maxActivePosition; ++j) {
                         if (state->positions[j].symbol.id == state->orders[i].symbol.id) {
                             if (state->positions[j].quantity >= state->orders[i].quantity) {
+                                transactionCost = state->orders[i].quantity * state->priceFn(&(state->orders[i].symbol), state->time);
+                                transactionCost -= transactionCost * TRANSACTION_FEE / 10000;
                                 state->positions[j].quantity -= state->orders[i].quantity;
-                                state->cash += state->orders[i].quantity * state->priceFn(&(state->orders[i].symbol), state->time);
+                                state->cash += transactionCost;
                                 state->orders[i].status = None; // delete this order once it executes
                             } else {
                                 fprintf(stderr, "Insufficient shares.\n");
@@ -64,7 +67,7 @@ void step(struct SimState *state) {
                     if (j >= state->maxActivePosition) {
                         fprintf(stderr, "Insufficient shares.\n");
                         exit(1);
-                    }
+                    }}
                     break;
                 case Custom:
                     state->orders[i].status = state->orders[i].customFn(state, state->orders + i);

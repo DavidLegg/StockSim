@@ -5,6 +5,10 @@
 
 #define MINUTES_PER_STEP 1
 
+// Defined in basis points
+// $ charged = Gross * Fee points / 10 000
+extern int TRANSACTION_FEE;
+
 /**
  * Main execution loops
  */

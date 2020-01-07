@@ -1,0 +1,61 @@
+GT1:
+    Setup:
+        Base Scenario:
+            $100.00
+            Historical pricing
+            25 Base Point transaction fee
+            MeanReversion
+                emaDiscount = 0.01^(1/(24*60))
+                initialSamples = 2880
+            TimeHorizon
+                1 Month
+    Grid Parameters
+        MeanReversion
+            buyFactor  : 0.9 to 1.0
+            sellFactor : 1.001 to 1.100
+            stopFactor : 0.800 to 0.995
+            5 values each
+        100 shots on each combo, spread over 300 days in 2019
+
+    Results: 
+        buy, sell at min: uniformly bad, avg -0.2% profit
+        increasing sell factor improves this to +%3 profit with 1.06-1.08
+        increasing buy factor improves this +%3.3 profit with 0.98 & stop factor ~0.85
+
+GT2:
+    Setup:
+        Base Scenario:
+            $100.00
+            Historical pricing
+            25 Base Point transaction fee
+            MeanReversion
+                emaDiscount = 0.01^(1/(24*60))
+                initialSamples = 2880
+            TimeHorizon
+                1 Month
+    Grid Parameters
+        MeanReversion
+            buyFactor  : 0.96 to 1.0
+            sellFactor : 1.05 to 1.09
+            stopFactor : 0.83 to 0.87
+            5 values each
+        100 shots on each combo, spread over 300 days in 2019
+
+    Results:
+        Sell @ 1.050 is a clear optimum
+        Buy  @ 0.968 maximizes within that, at ~59% success across a range of stop values
+        Stop between 0.838 and 0.862 nearly identical, best at 0.846
+
+    Temp - Raw Results:
+        Grouping by highest % runs with profit
+        60%
+            buy 0.984, sell 1.050, stop 0.85
+        59%
+            KEEP buy 0.968, sell 1.050, stop 0.846, profit +7.9%
+            KEEP buy 0.968, sell 1.050, stop 0.854, profit +7.6%
+            KEEP buy 0.968, sell 1.050, stop 0.862, profit +7.4%
+        58%
+            KEEP buy 0.968, sell 1.050, stop 0.830, profit +7.5%
+            KEEP buy 0.968, sell 1.050, stop 0.838, profit +7.7%
+
+Next test to run: try long-period tests with near-optimal parameters to validate these results.

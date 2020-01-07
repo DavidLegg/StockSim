@@ -26,51 +26,46 @@ enum OrderStatus basicStrat1(struct SimState *state, struct Order *order) {
     return Active;
 }
 
-struct emaStratAux {
-    time_t timeHorizon;
-    int havePosition;
-    double avgPrice;
-    int numSamples;
-    int boughtPrice;
-};
-
-enum OrderStatus emaStrat(struct SimState *state, struct Order *order) {
-    static const long TIME_LENGTH = 30*24*60*60; // 30 days
-    static const int OBSERVATION_PERIOD = 240;
-    static double DISCOUNT = 0.9623506263980885; // 0.01^(1/120)
-
-    struct emaStratAux *aux = (struct emaStratAux *)(order->aux);
-    if (!order->aux) {
-        order->aux = malloc(sizeof(struct emaStratAux));
-        aux = (struct emaStratAux *)(order->aux);
-        aux->timeHorizon = state->time + TIME_LENGTH;
-        aux->havePosition = 0;
-        aux->avgPrice = 0.0;
-        aux->numSamples = 0;
+enum OrderStatus timeHorizon(struct SimState *state, struct Order *order) {
+    struct TimeHorizonArgs *aux = (struct TimeHorizonArgs*)order->aux;
+    if (!aux->cutoff) {
+        aux->cutoff = state->time + aux->offset;
     }
-
-    if (state->time >= aux->timeHorizon) {
-        if (aux->havePosition) {
-            sell(state, &(order->symbol), order->quantity);
+    if (state->time >= aux->cutoff) {
+        // Remove all current orders
+        for (int i = 0; i < state->maxActiveOrder; ++i) {
+            state->orders[i].status = None;
         }
-        free(order->aux);
+        // Liquidate all current positions
+        for (int i = 0; i < state->maxActivePosition; ++i) {
+            if (state->positions[i].quantity > 0) {
+                sell(state, &(state->positions[i].symbol), state->positions[i].quantity);
+            }
+        }
         return None;
+    } else {
+        // Otherwise, don't do anything at all.
+        return Active;
     }
+}
 
+enum OrderStatus meanReversion(struct SimState *state, struct Order *order) {
+    struct MeanReversionArgs *aux = (struct MeanReversionArgs*)order->aux;
     int price = state->priceFn(&(order->symbol), state->time);
-    aux->avgPrice = aux->avgPrice * DISCOUNT + price * (1 - DISCOUNT);
-    if (aux->numSamples < OBSERVATION_PERIOD) {
-        ++(aux->numSamples);
-    } else if (!aux->havePosition && price < 0.9999*aux->avgPrice && 10 * price * order->quantity <= 9 * state->cash) {
-        buy(state, &(order->symbol), order->quantity);
-        aux->havePosition = 1;
-        aux->boughtPrice  = price;
-    } else if (aux->havePosition && price > 1.0001*aux->boughtPrice) {
-        sell(state, &(order->symbol), order->quantity);
-        aux->havePosition = 0;
-    } else if (aux->havePosition && price < 0.9999*aux->boughtPrice) {
-        sell(state, &(order->symbol), order->quantity);
-        aux->havePosition = 0;
+
+    aux->ema = aux->ema * aux->emaDiscount + price * (1 - aux->emaDiscount);
+    if (aux->initialSamples) {
+        --aux->initialSamples;
+    } else if (!aux->boughtQuantity && price < aux->buyFactor * aux->ema && price < state->cash) {
+        aux->boughtPrice    = price;
+        // Mathematically, price + price * FEE / 10000 is exactly
+        // the price that we would pay.
+        // Here, we add 1 to cover (conservatively) truncation error.
+        aux->boughtQuantity = state->cash / (price + 1 + price * TRANSACTION_FEE / 10000);
+        buy(state, &(order->symbol), aux->boughtQuantity);
+    } else if (aux->boughtQuantity && (price > aux->sellFactor * aux->ema || price < aux->stopFactor * aux->boughtPrice)) {
+        sell(state, &(order->symbol), aux->boughtQuantity);
+        aux->boughtQuantity = 0;
     }
 
     return Active;

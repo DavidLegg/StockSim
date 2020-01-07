@@ -1,6 +1,17 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "types.h"
+
+const time_t SECOND = 1;
+const time_t MINUTE = 60;
+const time_t HOUR   = 3600;
+const time_t DAY    = 86400;
+const time_t WEEK   = 604800;
+const time_t MONTH  = 2592000;
+const time_t YEAR   = 31536000;
+const int CENT = 1;
+const int DOLLAR = 100;
 
 void initSimState(struct SimState *state, time_t startTime) {
     state->time = startTime;
@@ -8,7 +19,7 @@ void initSimState(struct SimState *state, time_t startTime) {
     state->maxActivePosition = 0;
     state->cash = 0;
     state->priceFn = NULL;
-    state->aux = NULL;
+    memset(state->aux, 0, SIMSTATE_AUX_BYTES);
 
     for (int i = 0; i < MAX_ORDERS; ++i) {
         initOrder( &(state->orders[i]) );
@@ -22,9 +33,9 @@ void initOrder(struct Order *order) {
     order->status = None;
     order->type = Buy;
     order->customFn = NULL;
-    order->aux = NULL;
     order->symbol.id = 0;
     order->quantity = 0;
+    memset(order->aux, 0, ORDER_AUX_BYTES);
 }
 
 void initPosition(struct Position *position) {
@@ -32,6 +43,17 @@ void initPosition(struct Position *position) {
     for (int i = 0; i < SYMBOL_LENGTH; ++i) {
         position->symbol.name[i] = 0;
     }
+}
+
+void copySimState(struct SimState *dest, struct SimState *src) {
+    memcpy(dest->aux, src->aux, SIMSTATE_AUX_BYTES);
+    memcpy(dest->orders, src->orders, sizeof(struct Order) * src->maxActiveOrder);
+    memcpy(dest->positions, src->positions, sizeof(struct Position) * src->maxActivePosition);
+    dest->priceFn = src->priceFn;
+    dest->cash = src->cash;
+    dest->maxActiveOrder = src->maxActiveOrder;
+    dest->maxActivePosition = src->maxActivePosition;
+    dest->time = src->time;
 }
 
 void printSimState(struct SimState *state) {

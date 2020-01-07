@@ -56,6 +56,10 @@ struct SimState *getJobResult();
 //   array, ordered by time.
 // Puts one-after-the-end location into end
 int *runTimes(struct SimState *baseScenario, time_t startTime, time_t endTime, long skipSeconds, int **array_end);
+// Multi-scenario version:
+//   Runs each scenario at every time runTimes would have.
+//   Puts the final result in a 2-D array, n x *numberTimes (out param)
+int *runTimesMulti(struct SimState *baseScenarios, int n, time_t startTime, time_t endTime, long skipSeconds, int *numberTimes);
 
 /**
  * Helpers

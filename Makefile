@@ -19,7 +19,7 @@ all: makedirs $(EXEC)
 debug: CFLAGS += -g -DDEBUG
 debug: all
 
-perf: CFLAGS += -O3
+perf: CFLAGS += -O3 -DPERF
 perf: all
 
 clean:
