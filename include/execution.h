@@ -15,6 +15,7 @@ extern int TRANSACTION_FEE;
 
 void runScenario(struct SimState *state);
 void runScenarioDemo(struct SimState *state, int waitTimeMs);
+void graphScenario(struct SimState *state);
 
 void step(struct SimState *state);
 

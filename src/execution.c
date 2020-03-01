@@ -29,6 +29,17 @@ void runScenarioDemo(struct SimState *state, int waitTimeMs) {
     printSimState(state);
 }
 
+void graphScenario(struct SimState *state) {
+    FILE *gp = popen("gnuplot -persistent", "w");
+    fprintf(gp, "set title 'Stock Simulation'\n");
+    fprintf(gp, "plot '-' with lines\n");
+    while (state->maxActiveOrder) {
+        step(state);
+        fprintf(gp, "%ld %f\n", state->time, worth(state) / 100.0);
+    }
+    fprintf(gp, "e\n");
+}
+
 void step(struct SimState *state) {
     state->time += (MINUTES_PER_STEP * 60);
     long transactionCost = 0;

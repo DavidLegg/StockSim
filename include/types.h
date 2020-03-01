@@ -123,6 +123,12 @@ void copySimState(struct SimState *dest, struct SimState *src);
 
 
 /**
+ * Generic utilities
+ */
+int worth(struct SimState *state);
+
+
+/**
  * Pretty-printers
  */
 

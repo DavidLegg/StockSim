@@ -56,6 +56,14 @@ void copySimState(struct SimState *dest, struct SimState *src) {
     dest->time = src->time;
 }
 
+int worth(struct SimState *state) {
+    int worth = state->cash;
+    for (int i = 0; i < state->maxActivePosition; ++i) {
+        worth += state->positions[i].quantity * state->priceFn(&(state->positions[i].symbol), state->time);
+    }
+    return worth;
+}
+
 void printSimState(struct SimState *state) {
     const char *indent = "  ";
     char timeBuffer[128];
