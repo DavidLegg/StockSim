@@ -11,10 +11,10 @@ enum OrderStatus basicStrat1(struct SimState *state, struct Order *order) {
     static int price;
 
     if (!havePosition) {
-        price = state->priceFn(&(order->symbol), state->time);
+        price = state->priceFn(&(order->symbol), state->time, state->priceCache);
         buy(state, &(order->symbol), order->quantity);
         havePosition = 1;
-    } else if (state->priceFn(&(order->symbol), state->time) > price) {
+    } else if (state->priceFn(&(order->symbol), state->time, state->priceCache) > price) {
         sell(state, &(order->symbol), order->quantity);
         havePosition = 0;
         ++iters;
@@ -51,7 +51,7 @@ enum OrderStatus timeHorizon(struct SimState *state, struct Order *order) {
 
 enum OrderStatus meanReversion(struct SimState *state, struct Order *order) {
     struct MeanReversionArgs *aux = (struct MeanReversionArgs*)order->aux;
-    int price = state->priceFn(&(order->symbol), state->time);
+    int price = state->priceFn(&(order->symbol), state->time, state->priceCache);
 
     aux->ema = aux->ema * aux->emaDiscount + price * (1 - aux->emaDiscount);
     if (aux->initialSamples) {

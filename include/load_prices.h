@@ -8,43 +8,36 @@
 
 // 2^20
 #define PRICE_SERIES_LENGTH 1048576
-#define PRICE_CACHE_ENTRIES 64
+#define PRICE_CACHE_ENTRIES 16
 
 /**
  * Structs
  */
 
-struct readerWriterLock {
-    sem_t resourceLock;
-    sem_t readCountLock;
-    int readCount;
-};
-
 struct Prices {
-    struct readerWriterLock readerWriterLock;
     time_t times[PRICE_SERIES_LENGTH];
     int prices[PRICE_SERIES_LENGTH];
     long validRows;
     long lastUsage;
     union Symbol symbol;
 };
-// TODO: add synchronization
+
+struct PriceCache {
+    struct Prices entries[PRICE_CACHE_ENTRIES];
+    long usageCounter;
+};
 
 /**
  * Public Accessors
  */
 
-int getHistoricalPrice(const union Symbol *symbol, const time_t time);
+int getHistoricalPrice(const union Symbol *symbol, const time_t time, struct PriceCache *priceCache);
 
 /**
  * Helpers
  */
 
+void initializePriceCache(struct PriceCache *priceCache);
 void loadHistoricalPrice(struct Prices *p, const time_t time);
-void initReaderWriterLock(struct readerWriterLock *lock);
-void readerWait(struct readerWriterLock *lock);
-void readerPost(struct readerWriterLock *lock);
-void writerWait(struct readerWriterLock *lock);
-void writerPost(struct readerWriterLock *lock);
 
 #endif // ifndef LOAD_PRICES_H

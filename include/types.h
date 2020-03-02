@@ -10,9 +10,11 @@
 
 #ifdef DEBUG
 #include <stdio.h>
-#define db_printf(format, ...) printf("DEBUG:%s:%d: " format, __BASE_FILE__, __LINE__, __VA_ARGS__)
+#define db_printf(format, ...) printf("DEBUG:%s:%d: " format "\n", __BASE_FILE__, __LINE__, __VA_ARGS__)
+#define db_msg(msg) printf("DEBUG:%s:%d: %s\n", __BASE_FILE__, __LINE__, msg)
 #else
 #define db_printf(format, ...) // delete db_printf on non-debug builds
+#define db_msg(msg) // delete db_msg on non-debug builds
 #endif
 
 // Usage: Include a line like the following in the header after declaring the struct
@@ -43,6 +45,7 @@ extern const int DOLLAR;
 
 struct Order;
 struct SimState;
+struct PriceCache;
 
 
 /**
@@ -59,7 +62,7 @@ union Symbol {
 };
 
 // returns price as number of cents
-typedef int (*GetPriceFn)(const union Symbol*, const time_t time);
+typedef int (*GetPriceFn)(const union Symbol*, const time_t time, struct PriceCache *priceCache);
 
 // Orders
 
@@ -98,6 +101,7 @@ struct SimState {
     char aux[SIMSTATE_AUX_BYTES];
     struct Order orders[MAX_ORDERS];
     struct Position positions[MAX_POSITIONS];
+    struct PriceCache *priceCache;
     GetPriceFn priceFn;
     long cash;
     int maxActiveOrder;

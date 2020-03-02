@@ -3,6 +3,7 @@
 
 #include "batch_execution.h"
 #include "execution.h"
+#include "load_prices.h"
 
 static struct JobQueue JOB_QUEUE;
 
@@ -47,15 +48,24 @@ struct SimState *getJobResult() {
 // Add GCC unused attribute to stop GCC complaining
 // if I don't use this variable in the body.
 void *runJobs(__attribute__ ((unused)) void *dummy) {
+    struct PriceCache *priceCache = malloc(sizeof(struct PriceCache));
+    initializePriceCache(priceCache);
     struct SimState *scenario;
     while (1) {
+        // Acquire next job
         sem_wait(&JOB_QUEUE.jobsAvailable);
         sem_wait(&JOB_QUEUE.nextJobLock);
         scenario = JOB_QUEUE.scenarios[JOB_QUEUE.nextJob];
         JOB_QUEUE.nextJob = (JOB_QUEUE.nextJob + 1) % JOB_QUEUE_LENGTH;
         sem_post(&JOB_QUEUE.nextJobLock);
         sem_post(&JOB_QUEUE.jobSlotsAvailable);
+
+        // Execute job
+        scenario->priceCache = priceCache;
         runScenario(scenario);
+        scenario->priceCache = NULL; // don't leak address of priceCache
+
+        // Post result
         sem_wait(&JOB_QUEUE.resultSlotsAvailable);
         sem_wait(&JOB_QUEUE.nextResultSlotLock);
         JOB_QUEUE.results[JOB_QUEUE.nextResultSlot] = scenario;

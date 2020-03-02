@@ -126,7 +126,7 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
 
     // Limit simulation time
     struct TimeHorizonArgs *thArgs = ((struct TimeHorizonArgs*)state.orders[1].aux);
-    thArgs->offset = 300*DAY;
+    thArgs->offset = 30*DAY;
     thArgs->cutoff = 0;
 
     printf("Executing...\n");
@@ -141,14 +141,25 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
     //     (const char *[]){"Buy Factor", "Sell Factor", "Stop Factor"}
     //     );
 
+    // struct tm structSimStartTime;
+    // strptime("1/1/2019 01:00", "%m/%d/%Y%n%H:%M", &structSimStartTime);
+    // structSimStartTime.tm_isdst = -1;
+    // structSimStartTime.tm_sec = 0;
+    // state.time = mktime(&structSimStartTime);
+    // graphScenario(&state);
+    // printf("Start cash: $100.00\n");
+    // printf("Final cash: $%.2f (%.1f%%)\n", state.cash / 100.0, 100.0 * (state.cash - 100*DOLLAR) / (100*DOLLAR));
+    // return 0;
+
     struct tm structSimStartTime;
     strptime("1/1/2019 01:00", "%m/%d/%Y%n%H:%M", &structSimStartTime);
     structSimStartTime.tm_isdst = -1;
     structSimStartTime.tm_sec = 0;
     state.time = mktime(&structSimStartTime);
-    graphScenario(&state);
-    printf("Start cash: $100.00\n");
-    printf("Final cash: $%.2f (%.1f%%)\n", state.cash / 100.0, 100.0 * (state.cash - 100*DOLLAR) / (100*DOLLAR));
+
+    int *resultsEnd;
+    int *results = runTimes(&state, state.time, state.time + 200*DAY, 8*HOUR, &resultsEnd);
+    drawHistogram(results, resultsEnd, 5);
     return 0;
 }
 
