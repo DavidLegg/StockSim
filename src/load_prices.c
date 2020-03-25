@@ -66,7 +66,13 @@ void initializePriceCache(struct PriceCache *priceCache) {
 }
 
 void loadHistoricalPrice(struct Prices *p, const time_t time) {
-    const char fileFormat[] = "resources/gemini_%sUSD_2019_1min.csv";
+    // All available names for a data file, with %s indicating ticker symbol.
+    // Names listed from most preferred to least
+    const char *fileFormats[] = {
+        "resources/gemini_%sUSD_2019_1min.csv",
+        "resources/%s_daily_bars.csv"
+    };
+    const int numFileFormats = 2;
     const int bufSize = 256;
     char buf[bufSize];
     memset(buf, 0, bufSize);
@@ -78,10 +84,18 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
     strncpy(symbolName, p->symbol.name, SYMBOL_LENGTH);
     symbolName[SYMBOL_LENGTH] = 0;
 
-    snprintf(buf, bufSize, fileFormat, symbolName);
-    FILE *fp = fopen(buf, "r");
+    // Find a data file for this symbol
+    FILE *fp = NULL;
+    for (int i = 0; i < numFileFormats; ++i) {
+        snprintf(buf, bufSize, fileFormats[i], symbolName);
+        if ((fp = fopen(buf, "r"))) {
+            // File successfully opened. Stop searching.
+            break;
+        }
+        // File wasn't successfully opened, move to next possible file.
+    }
     if (!fp) {
-        fprintf(stderr, "Error opening data file %s.\n", buf);
+        fprintf(stderr, "No data file found for symbol %s\n", symbolName);
         exit(1);
     }
 
