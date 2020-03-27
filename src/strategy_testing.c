@@ -8,13 +8,9 @@
 #include "strategy_testing.h"
 
 #include "batch_execution.h"
-#include "load_prices.h"
 #include "histogram.h"
 
 #define GRID_BUFFER_SIZE 256
-#define RANDOM_SYMBOL_BUFFER_SIZE 8192
-
-const char *DEFAULT_SYMBOLS_FILE = "resources/symbols.txt";
 
 void initGridBaseScenarios(struct SimState *base, struct SimState *slots, double * const *params, const double *lows, const double *highs, const int *ns, int offset, int k) {
     if (k <= 0) {
@@ -94,64 +90,4 @@ void printGridResults(int *results, const char **paramNames, const double *lows,
             printGridResults(results + i * offset, paramNames + 1, lows + 1, highs + 1, ns + 1, offset, startCash, k - 1, buf);
         }
     }
-}
-
-union Symbol *randomSymbols(int n, const char *symbolsFile, time_t requiredDataStart, time_t requiredDataEnd) {
-    if (!symbolsFile) symbolsFile = DEFAULT_SYMBOLS_FILE;
-
-    FILE *fp = NULL;
-    if (!(fp = fopen(symbolsFile, "r"))) {
-        fprintf(stderr, "Cannot open symbols file %s\n", symbolsFile);
-        exit(1);
-    }
-
-    union Symbol *allSymbols = malloc(sizeof(union Symbol) * RANDOM_SYMBOL_BUFFER_SIZE);
-
-    // Figure out how many symbols there are to choose from:
-    int numSymbols = 0;
-    char c;
-    int i = 0;
-    time_t start, end;
-    while ((c = fgetc(fp)) != EOF) {
-        if (c == '\n') {
-            for (; i < SYMBOL_LENGTH; ++i) {
-                allSymbols[numSymbols].name[i] = '\0';
-            }
-            // If non-viable, don't increment numSymbols, thus don't logically record it
-            if ( getHistoricalPriceTimePeriod(allSymbols + numSymbols, &start, &end) &&
-                (!requiredDataStart || start <= requiredDataStart) &&
-                (!requiredDataEnd   || end   >= requiredDataEnd  ) ) ++numSymbols;
-            i = 0;
-        } else {
-            allSymbols[numSymbols].name[i] = c;
-            ++i;
-        }
-    }
-    if (numSymbols < n) {
-        fprintf(stderr, "Cannot choose %d symbols from symbol file %s with %d symbols\n", n, symbolsFile, numSymbols);
-    }
-
-    // Move the file pointer back to the beginning of the file, and choose the symbols:
-    rewind(fp);
-
-    union Symbol *chosenSymbols = malloc(sizeof(union Symbol) * n);
-    int symbolsChosen = 0;
-
-    while (symbolsChosen < n) {
-        // Choose a random index for available symbols
-        i = (int)(( (long)rand() * numSymbols ) / RAND_MAX );
-        // Reject if already chosen:
-        for (int j = 0; j < symbolsChosen; ++j) {
-            if (chosenSymbols[j].id == allSymbols[i].id) {
-                i = -1;
-                break;
-            }
-        }
-        if (i >= 0) {
-            chosenSymbols[symbolsChosen++].id = allSymbols[i].id;
-        }
-    }
-
-    fclose(fp);
-    return chosenSymbols;
 }

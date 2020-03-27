@@ -17,23 +17,14 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
 {
     printf("Initializing workers...\n");
     initJobQueue();
-    // unsigned int seed = time(0);
-    // printf("Seed value: %d\n", seed);
-    // srand(seed);
-    srand(1585265431);
-    
+    unsigned int seed = time(0);
+    printf("Seed value: %d\n", seed);
+    srand(seed);
+
     struct tm structSimStartTime;
     strptime("1/1/2010 00:00", "%m/%d/%Y%n%H:%M", &structSimStartTime);
     structSimStartTime.tm_isdst = -1;
     structSimStartTime.tm_sec = 0;
-
-    int n = 10;
-    printf("Choosing %d random symbols...\n", n);
-    union Symbol *symbols = randomSymbols(n, NULL, mktime(&structSimStartTime), 0);
-    printf("Chose %d random symbols:\n", n);
-    for (int i = 0; i < n; ++i) {
-        printf("  %.*s\n", SYMBOL_LENGTH, symbols[i].name);
-    }
 
     printf("Constructing base scenario...\n");
     int startCash = 10000*DOLLAR;
@@ -44,13 +35,9 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
     state.time = mktime(&structSimStartTime);
 
     // Create and configure a portfolio-rebalancing strategy
-    struct PortfolioRebalanceArgs *prArgs = (struct PortfolioRebalanceArgs *)makeCustomOrder(&state, NULL, 0, portfolioRebalance)->aux;
-    prArgs->symbolsUsed = n;
+    struct RandomPortfolioRebalanceArgs *prArgs = (struct RandomPortfolioRebalanceArgs *)makeCustomOrder(&state, NULL, 0, randomPortfolioRebalance)->aux;
+    prArgs->numSymbols = 10;
     prArgs->maxAssetValue = startCash;
-    for (int i = 0; i < n; ++i) {
-        prArgs->assets[i].id = symbols[i].id;
-        prArgs->weights[i] = 1.0 / n;
-    }
 
     // Create a time horizon
     struct TimeHorizonArgs *thArgs = (struct TimeHorizonArgs *)makeCustomOrder(&state, NULL, 0, timeHorizon)->aux;

@@ -47,7 +47,7 @@ void graphScenario(struct SimState *state) {
         "plot '-' using 1:2 title 'Net Worth' with lines\n");
     while (state->maxActiveOrder) {
         step(state);
-        fprintf(gp, "%ld %f\n", state->time, worth(state) / 100.0);
+        fprintf(gp, "%ld %f\n", state->time, worth(state) / (double)DOLLAR);
     }
     fprintf(gp, "e\n");
 }

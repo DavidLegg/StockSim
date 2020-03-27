@@ -19,13 +19,4 @@ const char *DEFAULT_SYMBOLS_FILE;
 void gridTest(struct SimState *baseScenario, double * const *params, const double *lows, const double *highs, const int *ns, int numParams, int numShots, const char **paramNames);
 void printGridResults(int *results, const char **paramNames, const double *lows, const double *highs, const int *ns, int offset, int startCash, int k, const char *labelInProgress);
 
-/**
- * Returns an array of n random symbols from the symbols file.
- * If symbolsFile is NULL, then uses DEFAULT_SYMBOLS_FILE
- * If requiredDataStart and/or end are non-zero, only selects symbols
- *   for which there is data starting on or before the required start,
- *   ending on or after the required end
- */
-union Symbol *randomSymbols(int n, const char *symbolsFile, time_t requiredDataStart, time_t requiredDataEnd);
-
 #endif // ifndef STRATEGY_TESTING_H

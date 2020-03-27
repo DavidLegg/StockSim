@@ -70,4 +70,27 @@ struct PortfolioRebalanceArgs {
 BOUND_SIZE(struct PortfolioRebalanceArgs,ORDER_AUX_BYTES);
 enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order);
 
+// Random-choice Portfolio Rebalancing: Buy/Sell Strategy
+// Starts by selecting some random stocks,
+// Then uses the portfolioRebalance strategy on those stocks, with equal weights.
+struct RandomPortfolioRebalanceArgs {
+    int numSymbols;
+    int maxAssetValue;
+};
+BOUND_SIZE(struct RandomPortfolioRebalanceArgs,ORDER_AUX_BYTES);
+enum OrderStatus randomPortfolioRebalance(struct SimState *state, struct Order *order);
+
+/**
+ * Misc. Helpful Tools
+ */
+
+/**
+ * Returns an array of n random symbols from the symbols file.
+ * If symbolsFile is NULL, then uses DEFAULT_SYMBOLS_FILE
+ * If requiredDataStart and/or end are non-zero, only selects symbols
+ *   for which there is data starting on or before the required start,
+ *   ending on or after the required end
+ */
+union Symbol *randomSymbols(int n, const char *symbolsFile, time_t requiredDataStart, time_t requiredDataEnd);
+
 #endif // ifndef STRATEGIES_H

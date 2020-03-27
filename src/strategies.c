@@ -1,8 +1,15 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 
-#include "strategies.h"
+#include "load_prices.h"
 #include "execution.h"
+
+#include "strategies.h"
+
+#define RANDOM_SYMBOL_BUFFER_SIZE 8192
+
+const char *DEFAULT_SYMBOLS_FILE = "resources/symbols.txt";
 
 enum OrderStatus basicStrat1(struct SimState *state, struct Order *order) {
     static const int MAX_ITERS = 5;
@@ -111,4 +118,86 @@ enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order)
     }
 
     return Active;
+}
+
+enum OrderStatus randomPortfolioRebalance(struct SimState *state, struct Order *order) {
+    struct RandomPortfolioRebalanceArgs *args = (struct RandomPortfolioRebalanceArgs *) order->aux;
+
+    union Symbol *symbols = randomSymbols(args->numSymbols, NULL, state->time, 0);
+
+    struct PortfolioRebalanceArgs *prArgs = (struct PortfolioRebalanceArgs *)makeCustomOrder(state, NULL, 0, portfolioRebalance)->aux;
+    prArgs->symbolsUsed = args->numSymbols;
+    prArgs->maxAssetValue = args->maxAssetValue;
+    for (int i = 0; i < args->numSymbols; ++i) {
+        prArgs->assets[i].id = symbols[i].id;
+        prArgs->weights[i] = 1.0 / args->numSymbols;
+    }
+
+    free(symbols);
+
+    return None;
+}
+
+/**
+ * Misc. Helpful Tools
+ */
+
+union Symbol *randomSymbols(int n, const char *symbolsFile, time_t requiredDataStart, time_t requiredDataEnd) {
+    if (!symbolsFile) symbolsFile = DEFAULT_SYMBOLS_FILE;
+
+    FILE *fp = NULL;
+    if (!(fp = fopen(symbolsFile, "r"))) {
+        fprintf(stderr, "Cannot open symbols file %s\n", symbolsFile);
+        exit(1);
+    }
+
+    union Symbol *allSymbols = malloc(sizeof(union Symbol) * RANDOM_SYMBOL_BUFFER_SIZE);
+
+    // Figure out how many symbols there are to choose from:
+    int numSymbols = 0;
+    char c;
+    int i = 0;
+    time_t start, end;
+    while ((c = fgetc(fp)) != EOF) {
+        if (c == '\n') {
+            for (; i < SYMBOL_LENGTH; ++i) {
+                allSymbols[numSymbols].name[i] = '\0';
+            }
+            // If non-viable, don't increment numSymbols, thus don't logically record it
+            if ( getHistoricalPriceTimePeriod(allSymbols + numSymbols, &start, &end) &&
+                (!requiredDataStart || start <= requiredDataStart) &&
+                (!requiredDataEnd   || end   >= requiredDataEnd  ) ) ++numSymbols;
+            i = 0;
+        } else {
+            allSymbols[numSymbols].name[i] = c;
+            ++i;
+        }
+    }
+    if (numSymbols < n) {
+        fprintf(stderr, "Cannot choose %d symbols from symbol file %s with %d symbols\n", n, symbolsFile, numSymbols);
+    }
+
+    // Move the file pointer back to the beginning of the file, and choose the symbols:
+    rewind(fp);
+
+    union Symbol *chosenSymbols = malloc(sizeof(union Symbol) * n);
+    int symbolsChosen = 0;
+
+    while (symbolsChosen < n) {
+        // Choose a random index for available symbols
+        i = (int)(( (long)rand() * numSymbols ) / RAND_MAX );
+        // Reject if already chosen:
+        for (int j = 0; j < symbolsChosen; ++j) {
+            if (chosenSymbols[j].id == allSymbols[i].id) {
+                i = -1;
+                break;
+            }
+        }
+        if (i >= 0) {
+            chosenSymbols[symbolsChosen++].id = allSymbols[i].id;
+        }
+    }
+
+    fclose(fp);
+    return chosenSymbols;
 }
