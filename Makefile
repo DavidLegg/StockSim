@@ -37,3 +37,6 @@ $(EXEC): $(OBJFILES)
 
 run: all
 	$(BINDIR)/$(EXEC)
+
+db_run: debug
+	gdb -tui $(BINDIR)/$(EXEC)

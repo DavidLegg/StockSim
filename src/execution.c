@@ -5,6 +5,7 @@
 #include "execution.h"
 
 int TRANSACTION_FEE = 25;
+int MINUTES_PER_STEP = 1;
 
 /**
  * Main execution loops
@@ -31,8 +32,19 @@ void runScenarioDemo(struct SimState *state, int waitTimeMs) {
 
 void graphScenario(struct SimState *state) {
     FILE *gp = popen("gnuplot -persistent", "w");
-    fprintf(gp, "set title 'Stock Simulation'\n");
-    fprintf(gp, "plot '-' with lines\n");
+    if (!gp) {
+        fprintf(stderr, "Could not start gnuplot.\n");
+        perror("Error");
+        exit(1);
+    }
+    fprintf(gp, "%s",
+        "set title 'Stock Simulation'\n"
+        "set timefmt \"%s\"\n"
+        "set xdata time\n"
+        "set format x \"%m/%d/%y\"\n"
+        "set xtics rotate by 60 offset -3,-3\n"
+        "set bmargin 4\n"
+        "plot '-' using 1:2 title 'Net Worth' with lines\n");
     while (state->maxActiveOrder) {
         step(state);
         fprintf(gp, "%ld %f\n", state->time, worth(state) / 100.0);
@@ -69,14 +81,14 @@ void step(struct SimState *state) {
                                 state->cash += transactionCost;
                                 state->orders[i].status = None; // delete this order once it executes
                             } else {
-                                fprintf(stderr, "Insufficient shares.\n");
+                                fprintf(stderr, "Insufficient shares to sell.\n");
                                 exit(1);
                             }
                             break;
                         }
                     }
                     if (j >= state->maxActivePosition) {
-                        fprintf(stderr, "Insufficient shares.\n");
+                        fprintf(stderr, "No position to sell.\n");
                         exit(1);
                     }}
                     break;
@@ -119,7 +131,7 @@ void addPosition(struct SimState *state, union Symbol *symbol, int quantity) {
     }
 }
 
-void buy(struct SimState *state, union Symbol *symbol, int quantity) {
+struct Order *buy(struct SimState *state, union Symbol *symbol, int quantity) {
     if (state->maxActiveOrder >= MAX_ORDERS) {
         fprintf(stderr, "No more orders available.\n");
         exit(1);
@@ -129,10 +141,10 @@ void buy(struct SimState *state, union Symbol *symbol, int quantity) {
     state->orders[state->maxActiveOrder].symbol.id = symbol->id;
     state->orders[state->maxActiveOrder].quantity  = quantity;
     state->orders[state->maxActiveOrder].customFn  = NULL;
-    ++(state->maxActiveOrder);
+    return state->orders + state->maxActiveOrder++;
 }
 
-void sell(struct SimState *state, union Symbol *symbol, int quantity) {
+struct Order *sell(struct SimState *state, union Symbol *symbol, int quantity) {
     if (state->maxActiveOrder >= MAX_ORDERS) {
         fprintf(stderr, "No more orders available.\n");
         exit(1);
@@ -142,10 +154,10 @@ void sell(struct SimState *state, union Symbol *symbol, int quantity) {
     state->orders[state->maxActiveOrder].symbol.id = symbol->id;
     state->orders[state->maxActiveOrder].quantity  = quantity;
     state->orders[state->maxActiveOrder].customFn  = NULL;
-    ++(state->maxActiveOrder);
+    return state->orders + state->maxActiveOrder++;
 }
 
-void makeCustomOrder(
+struct Order *makeCustomOrder(
     struct SimState *state,
     union Symbol *symbol,
     int quantity,
@@ -157,8 +169,8 @@ void makeCustomOrder(
     }
     state->orders[state->maxActiveOrder].status    = Active;
     state->orders[state->maxActiveOrder].type      = Custom;
-    state->orders[state->maxActiveOrder].symbol.id = symbol->id;
+    state->orders[state->maxActiveOrder].symbol.id = (symbol ? symbol->id : 0);
     state->orders[state->maxActiveOrder].quantity  = quantity;
     state->orders[state->maxActiveOrder].customFn  = customFn;
-    ++(state->maxActiveOrder);
+    return state->orders + state->maxActiveOrder++;
 }

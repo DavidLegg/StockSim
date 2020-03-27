@@ -55,4 +55,19 @@ struct MeanReversionArgs {
 BOUND_SIZE(struct MeanReversionArgs,ORDER_AUX_BYTES);
 enum OrderStatus meanReversion(struct SimState *state, struct Order *order);
 
+// Portfolio Rebalancing: Buy/Sell Strategy
+// Start by setting up a "desired balance" of assets.
+// At each time step, buys and sells each asset as necessary to get back to that balance.
+// If maxAssetValue is non-negative, will allocate no more than that amount into the market at each step.
+#define REBALANCING_MAX_SYMBOLS 16
+#define REBALANCING_BUFFER_FACTOR 0.9
+struct PortfolioRebalanceArgs {
+    union Symbol assets[REBALANCING_MAX_SYMBOLS];
+    double weights[REBALANCING_MAX_SYMBOLS];
+    int symbolsUsed;
+    int maxAssetValue;
+};
+BOUND_SIZE(struct PortfolioRebalanceArgs,ORDER_AUX_BYTES);
+enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order);
+
 #endif // ifndef STRATEGIES_H

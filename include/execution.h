@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-#define MINUTES_PER_STEP 1
+int MINUTES_PER_STEP;
 
 // Defined in basis points
 // $ charged = Gross * Fee points / 10 000
@@ -24,8 +24,8 @@ void step(struct SimState *state);
  */
 
 void addPosition(struct SimState *state, union Symbol *symbol, int quantity);
-void buy(struct SimState *state, union Symbol *symbol, int quantity);
-void sell(struct SimState *state, union Symbol *symbol, int quantity);
-void makeCustomOrder(struct SimState *state, union Symbol *symbol, int quantity, OrderFn *customFn);
+struct Order *buy(struct SimState *state, union Symbol *symbol, int quantity);
+struct Order *sell(struct SimState *state, union Symbol *symbol, int quantity);
+struct Order *makeCustomOrder(struct SimState *state, union Symbol *symbol, int quantity, OrderFn *customFn);
 
 #endif // ifndef EXECUTION_H

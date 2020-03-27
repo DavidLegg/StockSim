@@ -41,9 +41,7 @@ void initOrder(struct Order *order) {
 
 void initPosition(struct Position *position) {
     position->quantity = 0;
-    for (int i = 0; i < SYMBOL_LENGTH; ++i) {
-        position->symbol.name[i] = 0;
-    }
+    position->symbol.id = 0;
 }
 
 void copySimState(struct SimState *dest, struct SimState *src) {
@@ -81,13 +79,11 @@ void printSimState(struct SimState *state) {
         printf("%sPositions:\n", indent);
         for (int i = 0; i < state->maxActivePosition; ++i) {
             if (state->positions[i].quantity) {
-                printf("%s%s", indent, indent);
-                for (int j = 0; j < SYMBOL_LENGTH && state->positions[i].symbol.name[j]; ++j) {
-                    printf("%c", state->positions[i].symbol.name[j]);
-                }
                 positionWorth = state->positions[i].quantity * state->priceFn(&(state->positions[i].symbol), state->time, state->priceCache);
                 worth += positionWorth;
-                printf(" x %d : $%0.2f\n",
+                printf("%s%s%.*s x %.3d : $%0.2f\n",
+                    indent, indent,
+                    SYMBOL_LENGTH, state->positions[i].symbol.name,
                     state->positions[i].quantity,
                     positionWorth / 100.0);
             }
@@ -100,11 +96,11 @@ void printSimState(struct SimState *state) {
         printf("%sOrders:\n", indent);
         for (int i = 0; i < state->maxActiveOrder; ++i) {
             if (state->orders[i].status != None) {
-                printf("%s%s%s ", indent, indent, textOrderType(state->orders[i].type));
-                for (int j = 0; j < SYMBOL_LENGTH && state->orders[i].symbol.name[j]; ++j) {
-                    printf("%c", state->orders[i].symbol.name[j]);
-                }
-                printf(" x %d\n", state->orders[i].quantity);
+                printf("%s%s%s %.*s x %d\n",
+                    indent, indent,
+                    textOrderType(state->orders[i].type),
+                    SYMBOL_LENGTH, state->orders[i].symbol.name,
+                    state->orders[i].quantity);
             }
         }
     } else {

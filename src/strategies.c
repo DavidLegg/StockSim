@@ -70,3 +70,45 @@ enum OrderStatus meanReversion(struct SimState *state, struct Order *order) {
 
     return Active;
 }
+
+enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order) {
+    int currentPrices[REBALANCING_MAX_SYMBOLS];
+    int values[REBALANCING_MAX_SYMBOLS];
+    int buyingPower = state->cash;
+
+    struct PortfolioRebalanceArgs *args = (struct PortfolioRebalanceArgs *) order->aux;
+
+    // Get current prices, current values for each asset class,
+    //   and tally total available value
+    for (int i = 0; i < args->symbolsUsed; ++i) {
+        currentPrices[i] = state->priceFn(args->assets + i, state->time, state->priceCache);
+        values[i] = 0;
+        for (int j = 0; j < state->maxActivePosition; ++j) {
+            if (state->positions[i].symbol.id == args->assets[i].id) {
+                values[i] = state->positions[i].quantity * currentPrices[i];
+                break;
+            }
+        }
+        buyingPower += values[i];
+    }
+
+    // Calculate desired values for each asset class
+    //   and place appropriate orders to achieve them
+    if (buyingPower > args->maxAssetValue) {
+        buyingPower = args->maxAssetValue;
+    }
+    buyingPower *= REBALANCING_BUFFER_FACTOR;
+    int orderQuantity = 0;
+    for (int i = 0; i < args->symbolsUsed; ++i) {
+        // Calculate amount to buy/sell as difference between
+        //   desired and current values, divided by price per unit of asset
+        orderQuantity = (int)round( ((buyingPower * args->weights[i]) - (double)values[i]) / currentPrices[i] );
+        if (orderQuantity > 0) {
+            buy(state, args->assets + i, orderQuantity);
+        } else if (orderQuantity < 0) {
+            sell(state, args->assets + i, -orderQuantity);
+        } // else orderQuantity == 0, no action needed
+    }
+
+    return Active;
+}

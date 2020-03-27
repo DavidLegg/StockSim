@@ -20,6 +20,8 @@
 // Usage: Include a line like the following in the header after declaring the struct
 //   BOUND_SIZE(struct MyStruct, BYTES_AVAILABLE_FOR_MYSTRUCT);
 #define BOUND_SIZE(type,bound) _Static_assert( (sizeof(type) <= bound), "Type " #type " exceeds size bound " #bound )
+#define STR(x) STR2(x)
+#define STR2(x) #x
 
 /**
  * Constants & Forward-Declarations
@@ -29,8 +31,9 @@
 #define MAX_POSITIONS 128
 #define SYMBOL_LENGTH 4
 #define SYMBOL_ID_TYPE uint32_t
-#define ORDER_AUX_BYTES 64
+#define ORDER_AUX_BYTES 256
 #define SIMSTATE_AUX_BYTES 64
+_Static_assert( sizeof(SYMBOL_ID_TYPE) == SYMBOL_LENGTH * sizeof(char), "SYMBOL_ID_TYPE " STR(SYMBOL_ID_TYPE) " does not have the same size as " STR(SYMBOL_LENGTH) " chars" );
 
 // Nominal time units for convenient use later on.
 extern const time_t SECOND;

@@ -2,7 +2,6 @@
 #define LOAD_PRICES_H
 
 #include <time.h>
-#include <semaphore.h>
 
 #include "types.h"
 
@@ -31,7 +30,17 @@ struct PriceCache {
  * Public Accessors
  */
 
+/**
+ * Returns the price stored in the price file, at the given time.
+ * Uses the given priceCache to accelerate lookups.
+ */
 int getHistoricalPrice(const union Symbol *symbol, const time_t time, struct PriceCache *priceCache);
+/**
+ * Determines start/end times for historical pricing data for given symbol.
+ * If no historical price data for symbol exists, returns 0.
+ * Otherwise, returns 1 and stores start/end times in *start and *end.
+ */
+int getHistoricalPriceTimePeriod(const union Symbol *symbol, time_t *start, time_t *end);
 
 /**
  * Helpers
