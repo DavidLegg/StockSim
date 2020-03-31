@@ -1,93 +1,77 @@
 #include <stdlib.h>
-#include <stdio.h>
+#include <pthread.h>
 #include <string.h>
 
 #define __USE_XOPEN
 #include <time.h>
 
+#include "batch_execution.h"
+#include "rng.h"
+
 #include "strategy_testing.h"
 
-#include "batch_execution.h"
-#include "histogram.h"
+/**
+ * Testing
+ */
 
-#define GRID_BUFFER_SIZE 256
-
-void initGridBaseScenarios(struct SimState *base, struct SimState *slots, double * const *params, const double *lows, const double *highs, const int *ns, int offset, int k) {
-    if (k <= 0) {
-        copySimState(slots, base);
-    } else {
-        offset /= *ns;
-        double inc = (*highs - *lows) / *ns;
-        **params = *lows;
-        for (int i = 0; i < *ns; ++i) {
-            initGridBaseScenarios(base, slots + i * offset, params + 1, lows + 1, highs + 1, ns + 1, offset, k - 1);
-            **params += inc;
-        }
+struct randomizedStartArgs {
+    int n;
+    void (*dataProcessor)(struct SimState *);
+};
+void *randomizedStartCollectResults(void *args) {
+    struct randomizedStartArgs *rsArgs = (struct randomizedStartArgs *)args;
+    while (rsArgs->n > 0) {
+        rsArgs->dataProcessor(getJobResult());
+        --rsArgs->n;
     }
+    return NULL;
 }
-void gridTest(struct SimState *baseScenario, double * const *params, const double *lows, const double *highs, const int *ns, int numParams, int numShots, const char **paramNames) {
-    // Init some baseScenarios with the param varied
-    int numScenarios = 1;
-    for (int i = 0; i < numParams; ++i) {
-        numScenarios *= ns[i];
+void randomizedStart(struct SimState *baseScenario, int n, time_t minStart, time_t maxStart, void (*dataProcessor)(struct SimState *)) {
+    initJobQueue();
+
+    struct randomizedStartArgs rsArgs;
+    rsArgs.n = n;
+    rsArgs.dataProcessor = dataProcessor;
+    pthread_t resultThread;
+    pthread_create(&resultThread, NULL, randomizedStartCollectResults, &rsArgs);
+
+    struct SimState *scenarios = malloc(sizeof(*scenarios) * n);
+    // This memset should be unnecessary; the scenarios in use
+    //   should be init'd by the copySimState call below
+    memset(scenarios, 0, sizeof(*scenarios) * n);
+    for (int i = 0; i < n; ++i) {
+        copySimState(scenarios + i, baseScenario);
+        scenarios[i].time = minStart + (time_t)( tsRand() * (double)(maxStart - minStart) / RAND_MAX );
+        addJob(scenarios + i);
     }
-    struct SimState *baseScenarios = malloc(sizeof(struct SimState) * numScenarios);
 
-    initGridBaseScenarios(baseScenario, baseScenarios, params, lows, highs, ns, numScenarios, numParams);
-
-    // Default setup:
-    struct tm structSimStartTime;
-    strptime("1/1/2019 01:00", "%m/%d/%Y%n%H:%M", &structSimStartTime);
-    structSimStartTime.tm_isdst = -1;
-    structSimStartTime.tm_sec = 0;
-    time_t simStartTime, simEndTime;
-    simStartTime = mktime(&structSimStartTime);
-    simEndTime   = simStartTime + 300*DAY;
-    long skipSeconds = (simEndTime - simStartTime) / (numShots - 1);
-
-    // Execute and collect results
-    int numTimes = 0;
-    int *results = runTimesMulti(baseScenarios, numScenarios, simStartTime, simEndTime, skipSeconds, &numTimes);
-
-    // Pretty-print results:
-    printGridResults(results, paramNames, lows, highs, ns, numScenarios * numTimes, baseScenario->cash, numParams, "");
-    free(results);
+    pthread_join(resultThread, NULL);
+    free(scenarios);
 }
-void printGridResults(int *results, const char **paramNames, const double *lows, const double *highs, const int *ns, int offset, int startCash, int k, const char *labelInProgress) {
-    if (k <= 0) {
-        // Done with index calculations. Compute statistics
-        int numSuccesses = 0;
-        double avgProfit = 0.0;
-        for (int j = 0; j < offset; ++j) {
-            avgProfit += (results[j] -= startCash);
-            if (results[j] > 0) {
-                ++numSuccesses;
-            }
-        }
-        avgProfit /= offset;
 
-        // Print out statistics and histogram
-        printf("%s\n", labelInProgress);
-        printf("  Profit on %d/%d (%.0f%%)\n",
-            numSuccesses,
-            offset,
-            100.0 * numSuccesses / offset);
-        printf("  Average profit: ");
-        if (avgProfit > 0) {
-            printf("$%.4f (+%.1f%%)\n", avgProfit / 100, 100 * avgProfit / startCash);
-        } else {
-            printf("-$%.4f (-%.1f%%)\n", -avgProfit / 100, -100 * avgProfit / startCash);
-        }
-        printf("  Profit distribution:\n");
-        drawHistogram(results, results + offset, 10);
+/**
+ * Data collection
+ */
 
-    } else {
-        offset /= *ns;
-        double inc = (*highs - *lows) / *ns;
-        char buf[GRID_BUFFER_SIZE];
-        for (int i = 0; i < *ns; ++i) {
-            snprintf(buf, GRID_BUFFER_SIZE, "%s%s = %f, ", labelInProgress, *paramNames, *lows + i * inc);
-            printGridResults(results + i * offset, paramNames + 1, lows + 1, highs + 1, ns + 1, offset, startCash, k - 1, buf);
-        }
+static long *finalCashAcc   = NULL;
+static int finalCashAccCap  = 16;
+static int finalCashAccUsed = 0;
+void collectFinalCash(struct SimState *state) {
+    if (!finalCashAcc) {
+        finalCashAcc = malloc(finalCashAccCap * sizeof(*finalCashAcc));
     }
+    if (finalCashAccUsed >= finalCashAccCap) {
+        finalCashAccCap *= 2;
+        finalCashAcc = realloc(finalCashAcc, finalCashAccCap * sizeof(*finalCashAcc));
+    }
+    finalCashAcc[finalCashAccUsed++] = state->cash;
+}
+long *finalCashResults(int *n) {
+    *n = finalCashAccUsed;
+    return finalCashAcc;
+}
+void resetFinalCashCollector(void) {
+    finalCashAccUsed = 0;
+    finalCashAccCap  = 16;
+    finalCashAcc = realloc(finalCashAcc, finalCashAccCap * sizeof(*finalCashAcc));
 }

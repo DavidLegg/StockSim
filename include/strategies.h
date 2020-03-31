@@ -49,8 +49,8 @@ struct MeanReversionArgs {
     double sellFactor;  // set close to, greater than, 1
     double stopFactor;  // set close to, less than, 1
     int initialSamples; // # of samples to take before acting
-    int boughtPrice;    // init to 0
-    int boughtQuantity; // init to 0
+    long boughtPrice;    // init to 0
+    long boughtQuantity; // init to 0
 };
 BOUND_SIZE(struct MeanReversionArgs,ORDER_AUX_BYTES);
 enum OrderStatus meanReversion(struct SimState *state, struct Order *order);
@@ -64,8 +64,8 @@ enum OrderStatus meanReversion(struct SimState *state, struct Order *order);
 struct PortfolioRebalanceArgs {
     union Symbol assets[REBALANCING_MAX_SYMBOLS];
     double weights[REBALANCING_MAX_SYMBOLS];
+    long maxAssetValue;
     int symbolsUsed;
-    int maxAssetValue;
 };
 BOUND_SIZE(struct PortfolioRebalanceArgs,ORDER_AUX_BYTES);
 enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order);
@@ -74,8 +74,8 @@ enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order)
 // Starts by selecting some random stocks,
 // Then uses the portfolioRebalance strategy on those stocks, with equal weights.
 struct RandomPortfolioRebalanceArgs {
+    long maxAssetValue;
     int numSymbols;
-    int maxAssetValue;
 };
 BOUND_SIZE(struct RandomPortfolioRebalanceArgs,ORDER_AUX_BYTES);
 enum OrderStatus randomPortfolioRebalance(struct SimState *state, struct Order *order);

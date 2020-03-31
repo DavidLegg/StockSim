@@ -10,8 +10,8 @@ const time_t DAY    = 86400;
 const time_t WEEK   = 604800;
 const time_t MONTH  = 2592000;
 const time_t YEAR   = 31536000;
-const int CENT = 1;
-const int DOLLAR = 100;
+const long CENT = 100;
+const long DOLLAR = 10000;
 
 void initSimState(struct SimState *state, time_t startTime) {
     state->time = startTime;
@@ -56,8 +56,8 @@ void copySimState(struct SimState *dest, struct SimState *src) {
     dest->time = src->time;
 }
 
-int worth(struct SimState *state) {
-    int worth = state->cash;
+long worth(struct SimState *state) {
+    long worth = state->cash;
     for (int i = 0; i < state->maxActivePosition; ++i) {
         worth += state->positions[i].quantity * state->priceFn(&(state->positions[i].symbol), state->time, state->priceCache);
     }
@@ -68,9 +68,10 @@ void printSimState(struct SimState *state) {
     const char *indent = "  ";
     char timeBuffer[128];
     strftime(timeBuffer, 128, "%m/%d/%Y %H:%M", localtime( &(state->time) ));
-    printf("SimState\n%sTime: %s\n%sCash: $%0.2f\n",
+    printf("SimState (%p)\n%sTime: %s\n%sCash: $%0.2f\n",
+        (void*)state,
         indent, timeBuffer,
-        indent, state->cash / 100.0);
+        indent, state->cash / (double)DOLLAR);
 
     long worth = state->cash;
     long positionWorth;
@@ -81,11 +82,11 @@ void printSimState(struct SimState *state) {
             if (state->positions[i].quantity) {
                 positionWorth = state->positions[i].quantity * state->priceFn(&(state->positions[i].symbol), state->time, state->priceCache);
                 worth += positionWorth;
-                printf("%s%s%.*s x %.3d : $%0.2f\n",
+                printf("%s%s%-*.*s x %4.d : $%0.2f\n",
                     indent, indent,
-                    SYMBOL_LENGTH, state->positions[i].symbol.name,
+                    SYMBOL_LENGTH, SYMBOL_LENGTH, state->positions[i].symbol.name,
                     state->positions[i].quantity,
-                    positionWorth / 100.0);
+                    positionWorth / (double)DOLLAR);
             }
         }
     } else {
@@ -107,7 +108,7 @@ void printSimState(struct SimState *state) {
         printf("%sNo orders.\n", indent);
     }
 
-    printf("%sWorth: $%0.2f\n", indent, worth / 100.0);
+    printf("%sWorth: $%0.2f\n", indent, worth / (double)DOLLAR);
 }
 
 const char *textOrderStatus(const enum OrderStatus status) {

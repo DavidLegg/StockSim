@@ -15,7 +15,7 @@
 
 struct Prices {
     time_t times[PRICE_SERIES_LENGTH];
-    int prices[PRICE_SERIES_LENGTH];
+    long prices[PRICE_SERIES_LENGTH];
     long validRows;
     long lastUsage;
     union Symbol symbol;
@@ -34,13 +34,13 @@ struct PriceCache {
  * Returns the price stored in the price file, at the given time.
  * Uses the given priceCache to accelerate lookups.
  */
-int getHistoricalPrice(const union Symbol *symbol, const time_t time, struct PriceCache *priceCache);
+long getHistoricalPrice(const union Symbol *symbol, const time_t time, struct PriceCache *priceCache);
 /**
  * Determines start/end times for historical pricing data for given symbol.
  * If no historical price data for symbol exists, returns 0.
  * Otherwise, returns 1 and stores start/end times in *start and *end.
  */
-int getHistoricalPriceTimePeriod(const union Symbol *symbol, time_t *start, time_t *end);
+long getHistoricalPriceTimePeriod(const union Symbol *symbol, time_t *start, time_t *end);
 
 /**
  * Helpers

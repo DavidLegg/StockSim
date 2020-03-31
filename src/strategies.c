@@ -4,6 +4,7 @@
 
 #include "load_prices.h"
 #include "execution.h"
+#include "rng.h"
 
 #include "strategies.h"
 
@@ -15,7 +16,7 @@ enum OrderStatus basicStrat1(struct SimState *state, struct Order *order) {
     static const int MAX_ITERS = 5;
     static int iters = 0;
     static int havePosition = 0;
-    static int price;
+    static long price;
 
     if (!havePosition) {
         price = state->priceFn(&(order->symbol), state->time, state->priceCache);
@@ -58,7 +59,7 @@ enum OrderStatus timeHorizon(struct SimState *state, struct Order *order) {
 
 enum OrderStatus meanReversion(struct SimState *state, struct Order *order) {
     struct MeanReversionArgs *aux = (struct MeanReversionArgs*)order->aux;
-    int price = state->priceFn(&(order->symbol), state->time, state->priceCache);
+    long price = state->priceFn(&(order->symbol), state->time, state->priceCache);
 
     aux->ema = aux->ema * aux->emaDiscount + price * (1 - aux->emaDiscount);
     if (aux->initialSamples) {
@@ -79,9 +80,9 @@ enum OrderStatus meanReversion(struct SimState *state, struct Order *order) {
 }
 
 enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order) {
-    int currentPrices[REBALANCING_MAX_SYMBOLS];
-    int values[REBALANCING_MAX_SYMBOLS];
-    int buyingPower = state->cash;
+    long currentPrices[REBALANCING_MAX_SYMBOLS];
+    long values[REBALANCING_MAX_SYMBOLS];
+    long buyingPower = state->cash;
 
     struct PortfolioRebalanceArgs *args = (struct PortfolioRebalanceArgs *) order->aux;
 
@@ -91,8 +92,8 @@ enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order)
         currentPrices[i] = state->priceFn(args->assets + i, state->time, state->priceCache);
         values[i] = 0;
         for (int j = 0; j < state->maxActivePosition; ++j) {
-            if (state->positions[i].symbol.id == args->assets[i].id) {
-                values[i] = state->positions[i].quantity * currentPrices[i];
+            if (state->positions[j].symbol.id == args->assets[i].id) {
+                values[i] = state->positions[j].quantity * currentPrices[i];
                 break;
             }
         }
@@ -105,16 +106,21 @@ enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order)
         buyingPower = args->maxAssetValue;
     }
     buyingPower *= REBALANCING_BUFFER_FACTOR;
-    int orderQuantity = 0;
+
+    // Place all sell orders first, then place all buy orders
+    // That way, the money from the sell orders can cover the buys
+    // Calculate amount to buy/sell as difference between
+    //   desired and current values, divided by price per unit of asset
     for (int i = 0; i < args->symbolsUsed; ++i) {
-        // Calculate amount to buy/sell as difference between
-        //   desired and current values, divided by price per unit of asset
-        orderQuantity = (int)round( ((buyingPower * args->weights[i]) - (double)values[i]) / currentPrices[i] );
-        if (orderQuantity > 0) {
-            buy(state, args->assets + i, orderQuantity);
-        } else if (orderQuantity < 0) {
-            sell(state, args->assets + i, -orderQuantity);
-        } // else orderQuantity == 0, no action needed
+        values[i] = (long)round( ((buyingPower * args->weights[i]) - (double)values[i]) / currentPrices[i] );
+        if (values[i] < 0) {
+            sell(state, args->assets + i, -values[i]);
+        }
+    }
+    for (int i = 0; i < args->symbolsUsed; ++i) {
+        if (values[i] > 0) {
+            buy(state, args->assets + i, values[i]);
+        }
     }
 
     return Active;
@@ -185,7 +191,7 @@ union Symbol *randomSymbols(int n, const char *symbolsFile, time_t requiredDataS
 
     while (symbolsChosen < n) {
         // Choose a random index for available symbols
-        i = (int)(( (long)rand() * numSymbols ) / RAND_MAX );
+        i = (int)(( (long)tsRand() * numSymbols ) / RAND_MAX );
         // Reject if already chosen:
         for (int j = 0; j < symbolsChosen; ++j) {
             if (chosenSymbols[j].id == allSymbols[i].id) {

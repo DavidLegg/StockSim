@@ -3,20 +3,30 @@
 
 #include "types.h"
 
-const char *DEFAULT_SYMBOLS_FILE;
+/**
+ * Testing:
+ *   These functions run a scenario, or variations on a scenario,
+ *   repeatedly to obtain data about a base strategy.
+ */
 
 /**
- * Runs a grid test of variants of baseScenario.
- * Varies double parameters, using linearly spaced values in a given range
- * Warning! Destroys baseScenario as it goes
- *   params is an array of pointers to memory cells in baseScenario that will be varied
- *   lows & highs are arrays of the low/high values for each param
- *   ns is an array of integers, for the number of values each param will take on
- *   numParams is the number of parameters, the length of the params array, as well as the lows, highs, and ns arrays
- *   numShots is the number of times to run each variation of parameters
- *   paramNames is an array of names, one for each parameter. Used in printing progress messages
+ * Runs the same baseScenario n times, with randomly chosen starting times in the range specified.
  */
-void gridTest(struct SimState *baseScenario, double * const *params, const double *lows, const double *highs, const int *ns, int numParams, int numShots, const char **paramNames);
-void printGridResults(int *results, const char **paramNames, const double *lows, const double *highs, const int *ns, int offset, int startCash, int k, const char *labelInProgress);
+void randomizedStart(struct SimState *baseScenario, int n, time_t minStart, time_t maxStart, void (*dataProcessor)(struct SimState *));
+
+/**
+ * Data collection:
+ *   These functions collect standard statistics on a strategy,
+ *   used in conjunction with the testing routines above.
+ */
+
+/**
+ * Collects the ending cash for a strategy.
+ */
+void collectFinalCash(struct SimState *state);
+// returns the collected results, outputs number of results to location pointed to by n
+long *finalCashResults(int *n);
+// resets the accumulator
+void resetFinalCashCollector(void);
 
 #endif // ifndef STRATEGY_TESTING_H

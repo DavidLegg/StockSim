@@ -43,8 +43,8 @@ extern const time_t DAY;
 extern const time_t WEEK;
 extern const time_t MONTH;
 extern const time_t YEAR;
-extern const int CENT;
-extern const int DOLLAR;
+extern const long CENT;
+extern const long DOLLAR;
 
 struct Order;
 struct SimState;
@@ -65,7 +65,7 @@ union Symbol {
 };
 
 // returns price as number of cents
-typedef int (*GetPriceFn)(const union Symbol*, const time_t time, struct PriceCache *priceCache);
+typedef long (*GetPriceFn)(const union Symbol*, const time_t time, struct PriceCache *priceCache);
 
 // Orders
 
@@ -132,7 +132,7 @@ void copySimState(struct SimState *dest, struct SimState *src);
 /**
  * Generic utilities
  */
-int worth(struct SimState *state);
+long worth(struct SimState *state);
 
 
 /**

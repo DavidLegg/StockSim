@@ -6,6 +6,7 @@
 #include <time.h>
 
 #include "types.h"
+#include "rng.h"
 #include "execution.h"
 #include "load_prices.h"
 #include "strategies.h"
@@ -15,24 +16,17 @@
 
 int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const *argv[])
 {
-    printf("Initializing workers...\n");
-    initJobQueue();
-    unsigned int seed = time(0);
+    // unsigned int seed = time(0);
+    unsigned int seed = 1585336628;
     printf("Seed value: %d\n", seed);
-    srand(seed);
-
-    struct tm structSimStartTime;
-    strptime("1/1/2010 00:00", "%m/%d/%Y%n%H:%M", &structSimStartTime);
-    structSimStartTime.tm_isdst = -1;
-    structSimStartTime.tm_sec = 0;
+    tsRandInit(seed);
 
     printf("Constructing base scenario...\n");
-    int startCash = 10000*DOLLAR;
+    long startCash = 10000*DOLLAR;
     struct SimState state;
     initSimState(&state, 0);
     state.cash = startCash;
     state.priceFn = getHistoricalPrice;
-    state.time = mktime(&structSimStartTime);
 
     // Create and configure a portfolio-rebalancing strategy
     struct RandomPortfolioRebalanceArgs *prArgs = (struct RandomPortfolioRebalanceArgs *)makeCustomOrder(&state, NULL, 0, randomPortfolioRebalance)->aux;
@@ -44,15 +38,42 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
     thArgs->offset = 1*YEAR;
     thArgs->cutoff = 0;
 
-    // Create a single-thread execution price cache, and attach it to the state
-    struct PriceCache *priceCache = malloc(sizeof(struct PriceCache));
-    initializePriceCache(priceCache);
-    state.priceCache = priceCache;
+    // // Create a single-thread execution price cache, and attach it to the state
+    // struct PriceCache *priceCache = malloc(sizeof(struct PriceCache));
+    // initializePriceCache(priceCache);
+    // state.priceCache = priceCache;
 
-    printf("Executing...\n");
-    graphScenario(&state);
-    printf("Starting cash  $%.2f\n", startCash / 100.0);
-    printf("Ending cash    $%.2f (%.1f%%)\n", state.cash / 100.0, (100.0 * (state.cash - startCash)) / startCash);
+    // printf("Executing...\n");
+    // graphScenario(&state);
+    // printf("Starting cash  $%.2f\n", startCash / 100.0);
+    // printf("Ending cash    $%.2f (%.1f%%)\n", state.cash / 100.0, (100.0 * (state.cash - startCash)) / startCash);
+
+    // Create a start and end time
+    struct tm structStartTime, structEndTime;
+    strptime("1/1/1981 00:00", "%m/%d/%Y%n%H:%M", &structStartTime);
+    structStartTime.tm_isdst = -1;
+    structStartTime.tm_sec = 0;
+    strptime("1/1/2010 00:00", "%m/%d/%Y%n%H:%M", &structEndTime);
+    structEndTime.tm_isdst = -1;
+    structEndTime.tm_sec = 0;
+
+    // Execute the test
+    randomizedStart(&state, 100, mktime(&structStartTime), mktime(&structEndTime), collectFinalCash);
+    // state.time = mktime(&structStartTime);
+    // struct SimState original;
+    // copySimState(&original, &state);
+    // for (int i = 0; i < 100; ++i) {
+    //     copySimState(&state, &original);
+    //     runScenario(&state);
+    //     printf("Starting cash  $%.2f\n", startCash / (double) DOLLAR);
+    //     printf("Ending cash    $%.2f (%.1f%%)\n", state.cash / (double)DOLLAR, (100.0 * (state.cash - startCash)) / startCash);
+    // }
+
+    // Get and plot results
+    int n;
+    long *results;
+    results = finalCashResults(&n);
+    drawHistogram(results, results + n, 10);
 
     return 0;
 }

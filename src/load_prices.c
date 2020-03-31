@@ -13,7 +13,7 @@ const char *PRICE_FILENAME_FORMATS[] = {
 };
 const int NUM_PRICE_FILENAME_FORMATS = sizeof(PRICE_FILENAME_FORMATS) / sizeof(*PRICE_FILENAME_FORMATS);
 
-int getHistoricalPrice(const union Symbol *symbol, const time_t time, struct PriceCache *priceCache) {
+long getHistoricalPrice(const union Symbol *symbol, const time_t time, struct PriceCache *priceCache) {
     struct Prices *p;
     struct Prices *pEnd = priceCache->entries + PRICE_CACHE_ENTRIES;
     struct Prices *lruEntry = priceCache->entries;
@@ -107,7 +107,7 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
     char *back, *front;
 
     time_t *nextTime = p->times;
-    int *nextPrice = p->prices;
+    long *nextPrice = p->prices;
     double tempPrice;
     long loadedRows = 0;
 
@@ -175,7 +175,7 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
             } else if (col == priceCol) {
                 // read price as fractional dollars, store as integer cents
                 sscanf(back, "%lf", &tempPrice);
-                *(nextPrice++) = (int)round(tempPrice * 100);
+                *(nextPrice++) = (long)round(tempPrice * DOLLAR);
             } // else, not a column we care about, keep going
             back = ++front;
             ++col;
@@ -187,7 +187,7 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
     p->validRows = loadedRows;
 }
 
-int getHistoricalPriceTimePeriod(const union Symbol *symbol, time_t *start, time_t *end) {
+long getHistoricalPriceTimePeriod(const union Symbol *symbol, time_t *start, time_t *end) {
     const int bufSize = 256;
     char buf[bufSize];
     memset(buf, 0, bufSize);

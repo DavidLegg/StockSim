@@ -3,6 +3,6 @@
 
 #define HISTOGRAM_MAX_BAR_LENGTH 64
 
-void drawHistogram(int *data, int *dataEnd, int numBins);
+void drawHistogram(long *data, long *dataEnd, int numBins);
 
 #endif // ifndef HISTOGRAM_H

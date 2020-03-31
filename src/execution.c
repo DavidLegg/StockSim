@@ -1,11 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "execution.h"
 
 int TRANSACTION_FEE = 25;
-int MINUTES_PER_STEP = 1;
+int MINUTES_PER_STEP = 12*60;
 
 /**
  * Main execution loops
@@ -66,7 +67,9 @@ void step(struct SimState *state) {
                         addPosition(state, &(state->orders[i].symbol), state->orders[i].quantity);
                         state->orders[i].status = None; // delete this order once it executes
                     } else {
-                        fprintf(stderr, "Insufficient cash.\n");
+                        db_printf("State time: %ld", state->time);
+                        printSimState(state);
+                        fprintf(stderr, "Buy Error - Insufficient cash: Have $%.2f, need $%.2f\n", state->cash / (double)DOLLAR, transactionCost / (double)DOLLAR);
                         exit(1);
                     }
                     break;
@@ -81,14 +84,18 @@ void step(struct SimState *state) {
                                 state->cash += transactionCost;
                                 state->orders[i].status = None; // delete this order once it executes
                             } else {
-                                fprintf(stderr, "Insufficient shares to sell.\n");
+                                db_printf("State time: %ld", state->time);
+                                printSimState(state);
+                                fprintf(stderr, "Sell Error - Insufficient shares: Have %.*s x %d, need %d\n", SYMBOL_LENGTH, state->positions[j].symbol.name, state->positions[j].quantity, state->orders[i].quantity);
                                 exit(1);
                             }
                             break;
                         }
                     }
                     if (j >= state->maxActivePosition) {
-                        fprintf(stderr, "No position to sell.\n");
+                        db_printf("State time: %ld", state->time);
+                        printSimState(state);
+                        fprintf(stderr, "Sell Error - No position for sell order %.*s x %d\n", SYMBOL_LENGTH, state->orders[i].symbol.name, state->orders[i].quantity);
                         exit(1);
                     }}
                     break;
@@ -96,6 +103,8 @@ void step(struct SimState *state) {
                     state->orders[i].status = state->orders[i].customFn(state, state->orders + i);
                     break;
                 default:
+                    db_printf("State time: %ld", state->time);
+                    printSimState(state);
                     fprintf(stderr, "Unhandled order type %d.\n", state->orders[i].type);
                     exit(1);
             }

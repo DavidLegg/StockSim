@@ -4,27 +4,29 @@
 
 #include "histogram.h"
 
-void drawHistogram(int *data, int *dataEnd, int numBins) {
+void drawHistogram(long *data, long *dataEnd, int numBins) {
     int bins[numBins];
     memset(bins, 0, sizeof(bins));
 
-    int mn, mx, mxBin;
+    long mn, mx;
     mn = mx = *data;
+    int mxBin;
     
     // Calculate min/max values
-    for (int *p = data + 1; p < dataEnd; ++p) {
+    for (long *p = data + 1; p < dataEnd; ++p) {
         if (*p < mn) {
             mn = *p;
         } else if (*p > mx) {
             mx = *p;
         }
     }
+    mx += 1; // elegantly handles the case when all values are equal
 
     // Split values up among bins
     double binWidth = (mx - mn) / (double)numBins;
-    int temp;
-    for (int *p = data; p < dataEnd; ++p) {
-        temp = (int)floor((*p - mn) / binWidth);
+    long temp;
+    for (long *p = data; p < dataEnd; ++p) {
+        temp = (long)floor((*p - mn) / binWidth);
         ++bins[temp >= numBins ? numBins - 1 : temp];
     }
 
@@ -47,7 +49,7 @@ void drawHistogram(int *data, int *dataEnd, int numBins) {
 
     // Draw each bin
     for (int i = 0; i < numBins; ++i) {
-        printf("%10d | ", mn + (int)ceil(i * binWidth));
+        printf("%10ld | ", mn + (long)ceil(i * binWidth));
         for (int j = bins[i] - 1; j > 0; --j) {
             printf("=");
         }
@@ -56,6 +58,6 @@ void drawHistogram(int *data, int *dataEnd, int numBins) {
         }
         printf("\n");
     }
-    printf("%10d\n", mx);
+    printf("%10ld\n", mx);
 }
 
