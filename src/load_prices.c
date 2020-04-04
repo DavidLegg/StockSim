@@ -9,7 +9,7 @@
 // Names listed from most preferred to least
 const char *PRICE_FILENAME_FORMATS[] = {
     "resources/gemini_%sUSD_2019_1min.csv",
-    "resources/%s_daily_bars.csv"
+    "resources/%s_daily_bars_san.csv"
 };
 const int NUM_PRICE_FILENAME_FORMATS = sizeof(PRICE_FILENAME_FORMATS) / sizeof(*PRICE_FILENAME_FORMATS);
 

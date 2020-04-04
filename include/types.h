@@ -29,9 +29,9 @@
 
 #define MAX_ORDERS 128
 #define MAX_POSITIONS 128
-#define SYMBOL_LENGTH 4
-#define SYMBOL_ID_TYPE uint32_t
-#define ORDER_AUX_BYTES 256
+#define SYMBOL_LENGTH 8
+#define SYMBOL_ID_TYPE uint64_t
+#define ORDER_AUX_BYTES 512
 #define SIMSTATE_AUX_BYTES 64
 _Static_assert( sizeof(SYMBOL_ID_TYPE) == SYMBOL_LENGTH * sizeof(char), "SYMBOL_ID_TYPE " STR(SYMBOL_ID_TYPE) " does not have the same size as " STR(SYMBOL_LENGTH) " chars" );
 
