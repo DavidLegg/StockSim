@@ -16,8 +16,7 @@
 
 int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const *argv[])
 {
-    // unsigned int seed = time(0);
-    unsigned int seed = 1586032166;
+    unsigned int seed = time(0);
     printf("Seed value: %d\n", seed);
     tsRandInit(seed);
 
