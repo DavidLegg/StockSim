@@ -3,6 +3,7 @@
 
 #define HISTOGRAM_MAX_BAR_LENGTH 64
 
-void drawHistogram(long *data, long *dataEnd, int numBins);
+enum HistogramFormat {HF_Integer, HF_Float, HF_Currency};
+void drawHistogram(long *data, long *dataEnd, int numBins, enum HistogramFormat fmt);
 
 #endif // ifndef HISTOGRAM_H

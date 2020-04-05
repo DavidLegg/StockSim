@@ -73,10 +73,11 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
     // }
 
     // Get and plot results
+    printf("Testing complete. Results:\n");
     int n;
     long *results;
     results = finalCashResults(&n);
-    drawHistogram(results, results + n, 10);
+    drawHistogram(results, results + n, 15, HF_Currency);
 
     return 0;
 }
