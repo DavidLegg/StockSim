@@ -41,12 +41,19 @@ long getHistoricalPrice(const union Symbol *symbol, const time_t time, struct Pr
  * Otherwise, returns 1 and stores start/end times in *start and *end.
  */
 long getHistoricalPriceTimePeriod(const union Symbol *symbol, time_t *start, time_t *end);
+/**
+ * Returns all available symbols, as a statically allocated array.
+ * Writes size of array to address pointed to by n.
+ * Do not call free on result of this function.
+ */
+const union Symbol *getAllSymbols(int *n);
 
 /**
  * Helpers
  */
 
 void initializePriceCache(struct PriceCache *priceCache);
+void initializeTimePeriodCache();
 void loadHistoricalPrice(struct Prices *p, const time_t time);
 
 #endif // ifndef LOAD_PRICES_H

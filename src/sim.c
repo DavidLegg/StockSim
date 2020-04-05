@@ -20,6 +20,9 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
     printf("Seed value: %d\n", seed);
     tsRandInit(seed);
 
+    printf("Initializing TPC...\n");
+    initializeTimePeriodCache();
+
     printf("Constructing base scenario...\n");
     long startCash = 10000*DOLLAR;
     struct SimState state;
@@ -57,7 +60,8 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
     structEndTime.tm_sec = 0;
 
     // Execute the test
-    randomizedStart(&state, 100, mktime(&structStartTime), mktime(&structEndTime), collectFinalCash);
+    printf("Executing test...\n");
+    randomizedStart(&state, 1000, mktime(&structStartTime), mktime(&structEndTime), collectFinalCash);
     // state.time = mktime(&structStartTime);
     // struct SimState original;
     // copySimState(&original, &state);

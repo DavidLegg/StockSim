@@ -91,6 +91,6 @@ enum OrderStatus randomPortfolioRebalance(struct SimState *state, struct Order *
  *   for which there is data starting on or before the required start,
  *   ending on or after the required end
  */
-union Symbol *randomSymbols(int n, const char *symbolsFile, time_t requiredDataStart, time_t requiredDataEnd);
+union Symbol *randomSymbols(int n, time_t requiredDataStart, time_t requiredDataEnd);
 
 #endif // ifndef STRATEGIES_H

@@ -5,13 +5,27 @@
 
 #include "load_prices.h"
 
+// 2^14
+#define TIME_PERIOD_CACHE_SIZE 16384
+
 // All available names for a data file, with %s indicating ticker symbol.
 // Names listed from most preferred to least
-const char *PRICE_FILENAME_FORMATS[] = {
+static const char *PRICE_FILENAME_FORMATS[] = {
     "resources/gemini_%sUSD_2019_1min.csv",
     "resources/%s_daily_bars_san.csv"
 };
-const int NUM_PRICE_FILENAME_FORMATS = sizeof(PRICE_FILENAME_FORMATS) / sizeof(*PRICE_FILENAME_FORMATS);
+static const int NUM_PRICE_FILENAME_FORMATS = sizeof(PRICE_FILENAME_FORMATS) / sizeof(*PRICE_FILENAME_FORMATS);
+
+struct TimePeriod {
+    time_t start, end;
+    union Symbol symbol;
+    struct TimePeriod *next;
+};
+
+static struct TimePeriod TIME_PERIOD_CACHE[TIME_PERIOD_CACHE_SIZE];
+static int TPC_MAX_USED = 0;
+static const char *ALL_SYMBOLS_FILE = "resources/symbols.txt";
+static union Symbol ALL_SYMBOLS[TIME_PERIOD_CACHE_SIZE];
 
 long getHistoricalPrice(const union Symbol *symbol, const time_t time, struct PriceCache *priceCache) {
     struct Prices *p;
@@ -187,90 +201,123 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
     p->validRows = loadedRows;
 }
 
-long getHistoricalPriceTimePeriod(const union Symbol *symbol, time_t *start, time_t *end) {
+// Hoare partition quicksort, as described at https://en.wikipedia.org/wiki/Quicksort#Hoare_partition_scheme
+// Since values will be unique, we simplify the inner loop to a while, not a do-while.
+void quicksortTPC(int start, int end) {
+    if (start >= end) return;
+    SYMBOL_ID_TYPE pivot = TIME_PERIOD_CACHE[(start + end) / 2].symbol.id;
+    int low = start;
+    int high = end;
+    struct TimePeriod temp;
+    while (low < high) {
+        while (TIME_PERIOD_CACHE[low].symbol.id < pivot) ++low;
+        while (TIME_PERIOD_CACHE[high].symbol.id > pivot) --high;
+        temp = TIME_PERIOD_CACHE[low];
+        TIME_PERIOD_CACHE[low]  = TIME_PERIOD_CACHE[high];
+        TIME_PERIOD_CACHE[high] = temp;
+    }
+    quicksortTPC(start, high);
+    quicksortTPC(high + 1, end);
+}
+void initializeTimePeriodCache() {
     const int bufSize = 256;
     char buf[bufSize];
-    memset(buf, 0, bufSize);
-    char *back, *front;
-    int col, timeCol = -1;
-    time_t temp;
+    memset(buf, 0, bufSize * sizeof(char));
+    char *front, *back;
 
-    // Make a null-terminated string:
-    char symbolName[SYMBOL_LENGTH + 1];
-    strncpy(symbolName, symbol->name, SYMBOL_LENGTH);
-    symbolName[SYMBOL_LENGTH] = 0;
+    int symbolCol, startCol, endCol, col;
+    symbolCol = startCol = endCol = -1;
 
-    // Find a data file for this symbol
     FILE *fp = NULL;
-    for (int i = 0; i < NUM_PRICE_FILENAME_FORMATS; ++i) {
-        snprintf(buf, bufSize, PRICE_FILENAME_FORMATS[i], symbolName);
-        if ((fp = fopen(buf, "r"))) {
-            // File successfully opened. Stop searching.
-            break;
-        }
-        // File wasn't successfully opened, move to next possible file.
+    if (!(fp = fopen(ALL_SYMBOLS_FILE, "r"))) {
+        fprintf(stderr, "Cannot open symbols file %s\n", ALL_SYMBOLS_FILE);
+        exit(1);
     }
 
-    // If no file was found, indicate no such data is available
-    if (!fp) return 0;
-
-    // Look for column header, and find timestamp column
-    while (timeCol < 0 && fgets(buf, bufSize, fp)) {
-        back = front = buf;
+    // Read in column headers
+    while (fgets(buf, bufSize, fp) &&
+           (symbolCol < 0 || startCol < 0 || endCol < 0)) {
         col = 0;
-        while (*back) {
-            while (*front && *front != ',') ++front;
-            if (!strncmp(back, "Unix Timestamp", front - back)) {
-                timeCol = col;
-                break;
+        for (back = buf; *back; back = front + 1) {
+            for (front = back; *front && *front != ',' && *front != '\n'; ++front) ;
+            *front = 0;
+            if (!strcmp(back, "Symbol")) {
+                symbolCol = col;
+            } else if (!strcmp(back, "Start Time")) {
+                startCol = col;
+            } else if (!strcmp(back, "End Time")) {
+                endCol = col;
             }
-            back = ++front;
             ++col;
         }
     }
 
-    // Read next line, and report timestamp as start of data
-    // Warning! For simplicity, code assumes you have more than one datapoint in the file,
-    // and the the first line after the header row is a valid data row
-    if (!fgets(buf, bufSize, fp)) {
-        fprintf(stderr, "Error while skimming data file for %.*s\n", SYMBOL_LENGTH, symbol->name);
-        exit(1);
+    // Read in data
+    while (fgets(buf, bufSize, fp)) {
+        col = 0;
+        for (back = buf; *back; back = front + 1) {
+            for (front = back; *front && *front != ','; ++front) ;
+            *front = 0;
+            if (col == symbolCol) {
+                strncpy(TIME_PERIOD_CACHE[TPC_MAX_USED].symbol.name, back, SYMBOL_LENGTH);
+            } else if (col == startCol) {
+                sscanf(back, "%ld", &TIME_PERIOD_CACHE[TPC_MAX_USED].start);
+            } else if (col == endCol) {
+                sscanf(back, "%ld", &TIME_PERIOD_CACHE[TPC_MAX_USED].end);
+            }
+            ++col;
+        }
+        ++TPC_MAX_USED;
+        if (TPC_MAX_USED >= TIME_PERIOD_CACHE_SIZE) {
+            fprintf(stderr, "Exceeded maximum size of time period cache\n");
+            exit(1);
+        }
     }
-    back  = buf;
-    front = buf - 1;
-    col   = timeCol + 1;
-    while (*back && col) {
-        back = ++front;
-        while (*front && *front != ',') ++front;
-        --col;
-    }
-    *front = 0;
-    sscanf(back, "%ld", &temp);
-    *start = temp / 1000;
-
-    // Read the last line. Assumes that buf is more than long enough for it.
-    fseek(fp, 1-bufSize, SEEK_END);
-    if (!fread(buf, 1, bufSize, fp)) {
-        fprintf(stderr, "Error finding last line in data file for %.*s\n", SYMBOL_LENGTH, symbol->name);
-        exit(1);
-    }
-    // Replace the trailing newline with null
-    *strrchr(buf, '\n') = 0;
-    // Find start of last line
-    front = strrchr(buf, '\n');
-    back  = front + 1;
-    col   = timeCol + 1;
-    while (*back && col) {
-        back = ++front;
-        while (*front && *front != ',') ++front;
-        --col;
-    }
-    *front = 0;
-    sscanf(back, "%ld", &temp);
-    *end = temp / 1000;
 
     fclose(fp);
-    
-    // Return success
+
+    // Do an in-place quicksort of symbols
+    quicksortTPC(0, TPC_MAX_USED - 1);
+
+    // Load the all-symbols array
+    for (int i = 0; i < TPC_MAX_USED; ++i) {
+        ALL_SYMBOLS[i].id = TIME_PERIOD_CACHE[i].symbol.id;
+    }
+}
+
+long getHistoricalPriceTimePeriod(const union Symbol *symbol, time_t *start, time_t *end) {
+    if (!TPC_MAX_USED) {
+        fprintf(stderr, "Time Period Cache not initialized. Call initializeTimePeriodCache() first\n");
+        exit(1);
+    }
+
+    // Binary search for symbol id
+    int mn, mx, split;
+    mn = 0;
+    mx = TPC_MAX_USED - 1;
+    while (mn < mx) {
+        split = (mx + mn) / 2;
+        if (TIME_PERIOD_CACHE[split].symbol.id < symbol->id) {
+            mn = split + 1;
+        } else {
+            mx = split;
+        }
+    }
+
+    // Check if symbol was found
+    if (TIME_PERIOD_CACHE[mx].symbol.id != symbol->id) return 0;
+
+    *start = TIME_PERIOD_CACHE[mx].start;
+    *end   = TIME_PERIOD_CACHE[mx].end;
     return 1;
+}
+
+const union Symbol *getAllSymbols(int *n) {
+    if (!TPC_MAX_USED) {
+        fprintf(stderr, "Time Period Cache not initialized. Call initializeTimePeriodCache() first\n");
+        exit(1);
+    }
+
+    *n = TPC_MAX_USED;
+    return ALL_SYMBOLS;
 }
