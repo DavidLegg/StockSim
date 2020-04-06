@@ -40,16 +40,6 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
     thArgs->offset = 1*YEAR;
     thArgs->cutoff = 0;
 
-    // // Create a single-thread execution price cache, and attach it to the state
-    // struct PriceCache *priceCache = malloc(sizeof(struct PriceCache));
-    // initializePriceCache(priceCache);
-    // state.priceCache = priceCache;
-
-    // printf("Executing...\n");
-    // graphScenario(&state);
-    // printf("Starting cash  $%.2f\n", startCash / 100.0);
-    // printf("Ending cash    $%.2f (%.1f%%)\n", state.cash / 100.0, (100.0 * (state.cash - startCash)) / startCash);
-
     // Create a start and end time
     struct tm structStartTime, structEndTime;
     strptime("1/1/1981 00:00", "%m/%d/%Y%n%H:%M", &structStartTime);
@@ -61,23 +51,12 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
 
     // Execute the test
     printf("Executing test...\n");
-    randomizedStart(&state, 1000, mktime(&structStartTime), mktime(&structEndTime), collectFinalCash);
-    // state.time = mktime(&structStartTime);
-    // struct SimState original;
-    // copySimState(&original, &state);
-    // for (int i = 0; i < 100; ++i) {
-    //     copySimState(&state, &original);
-    //     runScenario(&state);
-    //     printf("Starting cash  $%.2f\n", startCash / (double) DOLLAR);
-    //     printf("Ending cash    $%.2f (%.1f%%)\n", state.cash / (double)DOLLAR, (100.0 * (state.cash - startCash)) / startCash);
-    // }
+    long *results, *resultsEnd;
+    results = (long*)randomizedStart(&state, 1000, mktime(&structStartTime), mktime(&structEndTime), &FinalCashDCS, (void**)&resultsEnd);
 
     // Get and plot results
     printf("Testing complete. Results:\n");
-    int n;
-    long *results;
-    results = finalCashResults(&n);
-    drawHistogram(results, results + n, 15, HF_Currency);
+    drawHistogram(results, resultsEnd, 15, HF_Currency);
 
     return 0;
 }

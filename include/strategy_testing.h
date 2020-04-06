@@ -3,6 +3,15 @@
 
 #include "types.h"
 
+struct DataCollectionSystem {
+    // Collect a data point from the state
+    void (*collect)(struct SimState *state);
+    // Return the aggregated results
+    void *(*results)(void **end);
+    // Reset the aggregator
+    void (*reset)(void);
+};
+
 /**
  * Testing:
  *   These functions run a scenario, or variations on a scenario,
@@ -11,8 +20,15 @@
 
 /**
  * Runs the same baseScenario n times, with randomly chosen starting times in the range specified.
+ * Uses the given DCS, returns start of results and stores end of results into *resultsEnd
  */
-void randomizedStart(struct SimState *baseScenario, int n, time_t minStart, time_t maxStart, void (*dataProcessor)(struct SimState *));
+void *randomizedStart(struct SimState *baseScenario, int n, time_t minStart, time_t maxStart, const struct DataCollectionSystem *dcs, void **resultsEnd);
+/**
+ * Runs each baseScenario for the same collection of randomly chosen starting times.
+ * Returns a 2-dimensional ragged array of results, as collected by given DCS. First dimension is scenario, second is start time.
+ * Stores a pointer to an array of end-pointers in resultEnds
+ */
+void **randomizedStartComparison(struct SimState *baseScenarios, int numScenarios, int n, time_t minStart, time_t maxStart, const struct DataCollectionSystem *dcs, void ***resultEnds);
 
 /**
  * Data collection:
@@ -24,9 +40,8 @@ void randomizedStart(struct SimState *baseScenario, int n, time_t minStart, time
  * Collects the ending cash for a strategy.
  */
 void collectFinalCash(struct SimState *state);
-// returns the collected results, outputs number of results to location pointed to by n
-long *finalCashResults(int *n);
-// resets the accumulator
+long *finalCashResults(long **end);
 void resetFinalCashCollector(void);
+const struct DataCollectionSystem FinalCashDCS;
 
 #endif // ifndef STRATEGY_TESTING_H
