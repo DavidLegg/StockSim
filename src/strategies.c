@@ -142,6 +142,17 @@ enum OrderStatus randomPortfolioRebalance(struct SimState *state, struct Order *
     return None;
 }
 
+enum OrderStatus buyBalanced(struct SimState *state, struct Order *order) {
+    struct BuyBalancedArgs *args = (struct BuyBalancedArgs *)order->aux;
+    const long value = (long)(args->totalValue * REBALANCING_BUFFER_FACTOR);
+    long price;
+    for (int i = 0; i < args->symbolsUsed; ++i) {
+        price = state->priceFn(args->assets + i, state->time, state->priceCache);
+        buy(state, args->assets + i, (int)round( (args->weights[i] * value) / (args->symbolsUsed * price) ));
+    }
+    return None;
+}
+
 /**
  * Misc. Helpful Tools
  */

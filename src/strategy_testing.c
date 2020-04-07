@@ -22,7 +22,7 @@ void *randomizedStartCollectResults(void *args) {
     struct randomizedStartArgs *rsArgs = (struct randomizedStartArgs *)args;
     while (rsArgs->n > 0) {
         rsArgs->dcs->collect(getJobResult());
-        --rsArgs->n;
+        --(rsArgs->n);
     }
     return NULL;
 }
@@ -70,8 +70,8 @@ void **randomizedStartComparison(struct SimState *baseScenarios, int numScenario
     initJobQueue();
 
     pthread_t resultThread;
-    struct randomizedStartArgs rsArgs;
-    rsArgs.dcs = dcs;
+    struct randomizedStartArgs *rsArgs = malloc(sizeof(*rsArgs));
+    rsArgs->dcs = dcs;
     struct SimState *scenarios = malloc(sizeof(*scenarios) * n);
     // This memset should be unnecessary; the scenarios in use
     //   should be init'd by the copySimState call below
@@ -80,8 +80,8 @@ void **randomizedStartComparison(struct SimState *baseScenarios, int numScenario
     int sz;
     for (int j = 0; j < numScenarios; ++j) {
         // Set up results collection
-        rsArgs.n = n;
-        pthread_create(&resultThread, NULL, randomizedStartCollectResults, &rsArgs);
+        rsArgs->n = n;
+        pthread_create(&resultThread, NULL, randomizedStartCollectResults, rsArgs);
         // Submit all jobs, using baseScenarios[j] and startTimes
         for (int i = 0; i < n; ++i) {
             copySimState(scenarios + i, baseScenarios + j);
@@ -93,11 +93,12 @@ void **randomizedStartComparison(struct SimState *baseScenarios, int numScenario
         tempOut = dcs->results(&tempOutEnd);
         sz = (char*)tempOutEnd - (char*)tempOut;
         output[j] = malloc(sz);
-        memcpy(output, tempOut, sz);
+        memcpy(output[j], tempOut, sz);
         outputEnds[j] = (char*)output[j] + sz;
         dcs->reset();
     }
 
+    free(rsArgs);
     free(scenarios);
     *resultEnds = outputEnds;
     return output;

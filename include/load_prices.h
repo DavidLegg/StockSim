@@ -5,9 +5,9 @@
 
 #include "types.h"
 
-// 2^20
-#define PRICE_SERIES_LENGTH 1048576
-#define PRICE_CACHE_ENTRIES 16
+// 2^18
+#define PRICE_SERIES_LENGTH 262144
+#define PRICE_CACHE_ENTRIES 64
 
 /**
  * Structs
