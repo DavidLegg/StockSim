@@ -29,6 +29,11 @@ void *randomizedStart(struct SimState *baseScenario, int n, time_t minStart, tim
  * Stores a pointer to an array of end-pointers in resultEnds
  */
 void **randomizedStartComparison(struct SimState *baseScenarios, int numScenarios, int n, time_t minStart, time_t maxStart, const struct DataCollectionSystem *dcs, void ***resultEnds);
+/**
+ * Specialization of randomizedStartComparison to 2 scenarios, and a DCS that reports long values.
+ * Returns an array of the differences (changeScenario's result - baselineScenario's result) for each run.
+ */
+long *randomizedStartDelta(struct SimState *baselineScenario, struct SimState *changeScenario, int n, time_t minStart, time_t maxStart, const struct DataCollectionSystem *dcs, long **resultsEnd);
 
 /**
  * Data collection:

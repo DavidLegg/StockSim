@@ -104,6 +104,27 @@ void **randomizedStartComparison(struct SimState *baseScenarios, int numScenario
     return output;
 }
 
+long *randomizedStartDelta(struct SimState *baselineScenario, struct SimState *changeScenario, int n, time_t minStart, time_t maxStart, const struct DataCollectionSystem *dcs, long **resultsEnd) {
+    struct SimState scenarios[2];
+    copySimState(scenarios, baselineScenario);
+    copySimState(scenarios + 1, changeScenario);
+
+    long **tempResults, **tempResultsEnd;
+    tempResults = (long**)randomizedStartComparison(scenarios, 2, n, minStart, maxStart, dcs, (void***)&tempResultsEnd);
+
+    long *output = malloc(sizeof(long) * n);
+
+    for (int i = 0; i < n; ++i) {
+        output[i] = tempResults[1][i] - tempResults[0][i];
+    }
+    free(tempResults[0]);
+    free(tempResults[1]);
+    free(tempResults);
+
+    *resultsEnd = output + n;
+    return output;
+}
+
 /**
  * Data collection
  */
