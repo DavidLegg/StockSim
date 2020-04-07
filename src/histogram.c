@@ -8,7 +8,38 @@
 #include "histogram.h"
 
 #define HIST_LABEL_WIDTH 15
+#define BUF_SIZE 32
 
+void printLabel(long mn, double offset, enum HistogramFormat fmt) {
+    switch (fmt) {
+        case HF_Integer:
+            printf("%*ld", HIST_LABEL_WIDTH, mn + (long)ceil(offset));
+            break;
+        case HF_Float:
+            printf("%*.2f", HIST_LABEL_WIDTH, mn + offset);
+            break;
+        case HF_Currency:
+            {
+                char buf[BUF_SIZE];
+                memset(buf, 0, BUF_SIZE * sizeof(char));
+                char *s;
+                snprintf(buf, BUF_SIZE, "%*.2f", HIST_LABEL_WIDTH, ( mn + offset ) / DOLLAR );
+                s = strrchr(buf, ' '); // find the padding cell right before the number starts
+                if (s[1] == '-') {
+                    // If there's a negative sign, move it before the dollar sign
+                    s[0] = '-';
+                    s[1] = '$';
+                } else {
+                    s[0] = '$';
+                }
+                printf("%*s", HIST_LABEL_WIDTH, s); // print the string, starting at s, padded as necessary
+            }
+            break;
+        default:
+            fprintf(stderr, "Unknown histogram format %d\n", fmt);
+            exit(1);
+    }
+}
 void drawHistogram(long *data, long *dataEnd, int numBins, enum HistogramFormat fmt) {
     int bins[numBins];
     memset(bins, 0, sizeof(bins));
@@ -52,30 +83,9 @@ void drawHistogram(long *data, long *dataEnd, int numBins, enum HistogramFormat 
         }
     }
 
-    const int bufSize = 32;
-    char buf[bufSize];
-    memset(buf, 0, bufSize * sizeof(char));
-    char *s;
-
     // Draw each bin
     for (int i = 0; i < numBins; ++i) {
-        switch (fmt) {
-            case HF_Integer:
-                printf("%*ld", HIST_LABEL_WIDTH, mn + (long)ceil(i * binWidth));
-                break;
-            case HF_Float:
-                printf("%*.2f", HIST_LABEL_WIDTH, mn + i * binWidth);
-                break;
-            case HF_Currency:
-                snprintf(buf, bufSize, "%*.2f", HIST_LABEL_WIDTH, ( mn + i * binWidth ) / DOLLAR );
-                s = strrchr(buf, ' '); // find the padding cell right before the number starts
-                *s = '$'; // add the dollar sign there
-                printf("%*s", HIST_LABEL_WIDTH, s); // and print the string, starting at s, padded as necessary
-                break;
-            default:
-                fprintf(stderr, "Unknown histogram format %d\n", fmt);
-                exit(1);
-        }
+        printLabel(mn, i * binWidth, fmt);
         printf(" | ");
         for (int j = bins[i] - 1; j > 0; --j) {
             printf("=");
@@ -85,23 +95,7 @@ void drawHistogram(long *data, long *dataEnd, int numBins, enum HistogramFormat 
         }
         printf("\n");
     }
-    switch (fmt) {
-        case HF_Integer:
-            printf("%*ld", HIST_LABEL_WIDTH, mx);
-            break;
-        case HF_Float:
-            printf("%*.2f", HIST_LABEL_WIDTH, (double)mx);
-            break;
-        case HF_Currency:
-            snprintf(buf, bufSize, "%*.2f", HIST_LABEL_WIDTH, mx / (double)DOLLAR );
-            s = strrchr(buf, ' '); // find the padding cell right before the number starts
-            *s = '$'; // add the dollar sign there
-            printf("%*s", HIST_LABEL_WIDTH, s); // and print the string, starting at s, padded as necessary
-            break;
-        default:
-            fprintf(stderr, "Unknown histogram format %d\n", fmt);
-            exit(1);
-    }
+    printLabel(mx, 0, fmt);
     printf("\n");
 }
 
