@@ -16,22 +16,22 @@
 
 struct randomizedStartArgs {
     int n;
-    void (*dataProcessor)(struct SimState *);
+    const struct DataCollectionSystem *dcs;
 };
 void *randomizedStartCollectResults(void *args) {
     struct randomizedStartArgs *rsArgs = (struct randomizedStartArgs *)args;
     while (rsArgs->n > 0) {
-        rsArgs->dataProcessor(getJobResult());
-        --rsArgs->n;
+        rsArgs->dcs->collect(getJobResult());
+        --(rsArgs->n);
     }
     return NULL;
 }
-void randomizedStart(struct SimState *baseScenario, int n, time_t minStart, time_t maxStart, void (*dataProcessor)(struct SimState *)) {
+void *randomizedStart(struct SimState *baseScenario, int n, time_t minStart, time_t maxStart, const struct DataCollectionSystem *dcs, void **resultsEnd) {
     initJobQueue();
 
     struct randomizedStartArgs rsArgs;
     rsArgs.n = n;
-    rsArgs.dataProcessor = dataProcessor;
+    rsArgs.dcs = dcs;
     pthread_t resultThread;
     pthread_create(&resultThread, NULL, randomizedStartCollectResults, &rsArgs);
 
@@ -47,6 +47,61 @@ void randomizedStart(struct SimState *baseScenario, int n, time_t minStart, time
 
     pthread_join(resultThread, NULL);
     free(scenarios);
+
+    void *tempOutEnd;
+    void *tempOut = dcs->results(&tempOutEnd);
+    int sz = (char*)tempOutEnd - (char*)tempOut;
+    void *output = malloc(sz);
+    memcpy(output, tempOut, sz);
+    dcs->reset();
+    *resultsEnd = (char*)output + sz;
+
+    return output;
+}
+
+void **randomizedStartComparison(struct SimState *baseScenarios, int numScenarios, int n, time_t minStart, time_t maxStart, const struct DataCollectionSystem *dcs, void ***resultEnds) {
+    time_t startTimes[n];
+    for (int i = 0; i < n; ++i) {
+        startTimes[i] = minStart + (time_t)( tsRand() * (double)(maxStart - minStart) / RAND_MAX );
+    }
+    void **output     = malloc(sizeof(void *) * numScenarios);
+    void **outputEnds = malloc(sizeof(void *) * numScenarios);
+
+    initJobQueue();
+
+    pthread_t resultThread;
+    struct randomizedStartArgs *rsArgs = malloc(sizeof(*rsArgs));
+    rsArgs->dcs = dcs;
+    struct SimState *scenarios = malloc(sizeof(*scenarios) * n);
+    // This memset should be unnecessary; the scenarios in use
+    //   should be init'd by the copySimState call below
+    memset(scenarios, 0, sizeof(*scenarios) * n);
+    void *tempOut, *tempOutEnd;
+    int sz;
+    for (int j = 0; j < numScenarios; ++j) {
+        // Set up results collection
+        rsArgs->n = n;
+        pthread_create(&resultThread, NULL, randomizedStartCollectResults, rsArgs);
+        // Submit all jobs, using baseScenarios[j] and startTimes
+        for (int i = 0; i < n; ++i) {
+            copySimState(scenarios + i, baseScenarios + j);
+            scenarios[i].time = startTimes[i];
+            addJob(scenarios + i);
+        }
+        // Allocate array for results, store in output[j]
+        pthread_join(resultThread, NULL);
+        tempOut = dcs->results(&tempOutEnd);
+        sz = (char*)tempOutEnd - (char*)tempOut;
+        output[j] = malloc(sz);
+        memcpy(output[j], tempOut, sz);
+        outputEnds[j] = (char*)output[j] + sz;
+        dcs->reset();
+    }
+
+    free(rsArgs);
+    free(scenarios);
+    *resultEnds = outputEnds;
+    return output;
 }
 
 /**
@@ -66,8 +121,8 @@ void collectFinalCash(struct SimState *state) {
     }
     finalCashAcc[finalCashAccUsed++] = state->cash;
 }
-long *finalCashResults(int *n) {
-    *n = finalCashAccUsed;
+long *finalCashResults(long **end) {
+    *end = finalCashAcc + finalCashAccUsed;
     return finalCashAcc;
 }
 void resetFinalCashCollector(void) {
@@ -75,3 +130,5 @@ void resetFinalCashCollector(void) {
     finalCashAccCap  = 16;
     finalCashAcc = realloc(finalCashAcc, finalCashAccCap * sizeof(*finalCashAcc));
 }
+
+const struct DataCollectionSystem FinalCashDCS = {collectFinalCash, (void *(*)(void **)) finalCashResults, resetFinalCashCollector};
