@@ -21,20 +21,15 @@ struct Prices {
     union Symbol symbol;
 };
 
-struct PriceCache {
-    struct Prices entries[PRICE_CACHE_ENTRIES];
-    long usageCounter;
-};
-
 /**
  * Public Accessors
  */
 
 /**
  * Returns the price stored in the price file, at the given time.
- * Uses the given priceCache to accelerate lookups.
+ * Automatically handles caching in an efficient, thread-safe way
  */
-long getHistoricalPrice(const union Symbol *symbol, const time_t time, struct PriceCache *priceCache);
+long getHistoricalPrice(const union Symbol *symbol, const time_t time);
 /**
  * Determines start/end times for historical pricing data for given symbol.
  * If no historical price data for symbol exists, returns 0.
@@ -49,11 +44,26 @@ long getHistoricalPriceTimePeriod(const union Symbol *symbol, time_t *start, tim
 const union Symbol *getAllSymbols(int *n);
 
 /**
+ * Public Modifiers
+ */
+
+/**
+ * This method needs to be called once by the master thread,
+ * prior to worker thread creation.
+ */
+void historicalPriceInit();
+
+/**
+ * This method needs to be called by the master thread
+ * with the thread id of every thread that can call getHistoricalPrice
+ */
+void historicalPriceAddThread(pthread_t tid);
+
+
+/**
  * Helpers
  */
 
-void initializePriceCache(struct PriceCache *priceCache);
-void initializeTimePeriodCache();
 void loadHistoricalPrice(struct Prices *p, const time_t time);
 
 #endif // ifndef LOAD_PRICES_H

@@ -17,10 +17,10 @@ enum OrderStatus basicStrat1(struct SimState *state, struct Order *order) {
     static long price;
 
     if (!havePosition) {
-        price = state->priceFn(&(order->symbol), state->time, state->priceCache);
+        price = state->priceFn(&(order->symbol), state->time);
         buy(state, &(order->symbol), order->quantity);
         havePosition = 1;
-    } else if (state->priceFn(&(order->symbol), state->time, state->priceCache) > price) {
+    } else if (state->priceFn(&(order->symbol), state->time) > price) {
         sell(state, &(order->symbol), order->quantity);
         havePosition = 0;
         ++iters;
@@ -57,7 +57,7 @@ enum OrderStatus timeHorizon(struct SimState *state, struct Order *order) {
 
 enum OrderStatus meanReversion(struct SimState *state, struct Order *order) {
     struct MeanReversionArgs *aux = (struct MeanReversionArgs*)order->aux;
-    long price = state->priceFn(&(order->symbol), state->time, state->priceCache);
+    long price = state->priceFn(&(order->symbol), state->time);
 
     aux->ema = aux->ema * aux->emaDiscount + price * (1 - aux->emaDiscount);
     if (aux->initialSamples) {
@@ -87,7 +87,7 @@ enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order)
     // Get current prices, current values for each asset class,
     //   and tally total available value
     for (int i = 0; i < args->symbolsUsed; ++i) {
-        currentPrices[i] = state->priceFn(args->assets + i, state->time, state->priceCache);
+        currentPrices[i] = state->priceFn(args->assets + i, state->time);
         values[i] = 0;
         for (int j = 0; j < state->maxActivePosition; ++j) {
             if (state->positions[j].symbol.id == args->assets[i].id) {
@@ -147,7 +147,7 @@ enum OrderStatus buyBalanced(struct SimState *state, struct Order *order) {
     const long value = (long)(args->totalValue * REBALANCING_BUFFER_FACTOR);
     long price;
     for (int i = 0; i < args->symbolsUsed; ++i) {
-        price = state->priceFn(args->assets + i, state->time, state->priceCache);
+        price = state->priceFn(args->assets + i, state->time);
         buy(state, args->assets + i, (int)round( (args->weights[i] * value) / (args->symbolsUsed * price) ));
     }
     return None;

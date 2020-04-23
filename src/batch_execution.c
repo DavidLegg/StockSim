@@ -11,6 +11,9 @@ static int JOB_QUEUE_INITIALIZED = 0;
 
 void initJobQueue(void) {
     if (JOB_QUEUE_INITIALIZED) return; // nothing to do!
+
+    historicalPriceInit();
+
     for (int i = 0; i < JOB_QUEUE_LENGTH; ++i) {
         JOB_QUEUE.scenarios[i] = NULL;
         JOB_QUEUE.results[i]   = NULL;
@@ -31,6 +34,7 @@ void initJobQueue(void) {
             exit(1);
         }
         tsRandAddThread(thread);
+        historicalPriceAddThread(thread);
     }
     JOB_QUEUE_INITIALIZED = 1;
 }
@@ -53,8 +57,6 @@ struct SimState *getJobResult() {
 // Add GCC unused attribute to stop GCC complaining
 // if I don't use this variable in the body.
 void *runJobs(__attribute__ ((unused)) void *dummy) {
-    struct PriceCache *priceCache = malloc(sizeof(struct PriceCache));
-    initializePriceCache(priceCache);
     struct SimState *scenario;
     while (1) {
         // Acquire next job
@@ -66,9 +68,7 @@ void *runJobs(__attribute__ ((unused)) void *dummy) {
         sem_post(&JOB_QUEUE.jobSlotsAvailable);
 
         // Execute job
-        scenario->priceCache = priceCache;
         runScenario(scenario);
-        scenario->priceCache = NULL; // don't leak address of priceCache
 
         // Post result
         sem_wait(&JOB_QUEUE.resultSlotsAvailable);

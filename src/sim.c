@@ -28,9 +28,7 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
     unsigned int seed = time(0);
     printf("Seed value: %d\n", seed);
     tsRandInit(seed);
-
-    printf("Initializing TPC...\n");
-    initializeTimePeriodCache();
+    historicalPriceInit();
 
     printf("Choosing test time period...\n");
     struct tm structPeriodStart, structPeriodEnd;
