@@ -60,7 +60,7 @@ void step(struct SimState *state) {
         if (state->orders[i].status == Active) {
             switch (state->orders[i].type) {
                 case Buy:
-                    transactionCost = state->orders[i].quantity * state->priceFn(&(state->orders[i].symbol), state->time, state->priceCache);
+                    transactionCost = state->orders[i].quantity * state->priceFn(&(state->orders[i].symbol), state->time);
                     transactionCost += transactionCost * TRANSACTION_FEE / 10000;
                     if (state->cash >= transactionCost) {
                         state->cash -= transactionCost;
@@ -78,7 +78,7 @@ void step(struct SimState *state) {
                     for (j = 0; j < state->maxActivePosition; ++j) {
                         if (state->positions[j].symbol.id == state->orders[i].symbol.id) {
                             if (state->positions[j].quantity >= state->orders[i].quantity) {
-                                transactionCost = state->orders[i].quantity * state->priceFn(&(state->orders[i].symbol), state->time, state->priceCache);
+                                transactionCost = state->orders[i].quantity * state->priceFn(&(state->orders[i].symbol), state->time);
                                 transactionCost -= transactionCost * TRANSACTION_FEE / 10000;
                                 state->positions[j].quantity -= state->orders[i].quantity;
                                 state->cash += transactionCost;

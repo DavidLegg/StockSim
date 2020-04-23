@@ -26,7 +26,7 @@ void tsRandAddThread(pthread_t tid) {
     RNG_THREAD_IDS[RNG_IN_USE] = tid;
     pthread_t selfID = pthread_self();
     for (int i = 0; i < RNG_IN_USE; ++i) {
-        if (RNG_THREAD_IDS[i] == selfID) {
+        if (pthread_equal(RNG_THREAD_IDS[i], selfID)) {
             RNG_SEEDS[RNG_IN_USE] = rand_r(RNG_SEEDS + i);
         }
     }
@@ -36,7 +36,7 @@ void tsRandAddThread(pthread_t tid) {
 int tsRand() {
     pthread_t tid = pthread_self();
     for (int i = 0; i < RNG_IN_USE; ++i) {
-        if (RNG_THREAD_IDS[i] == tid) {
+        if (pthread_equal(RNG_THREAD_IDS[i], tid)) {
             int output = rand_r(RNG_SEEDS + i);
             return output;
         }

@@ -64,8 +64,8 @@ union Symbol {
     SYMBOL_ID_TYPE id;
 };
 
-// returns price as number of cents
-typedef long (*GetPriceFn)(const union Symbol*, const time_t time, struct PriceCache *priceCache);
+// returns price. Use CENT and DOLLAR to convert to absolute value
+typedef long (*GetPriceFn)(const union Symbol*, const time_t time);
 
 // Orders
 
@@ -104,7 +104,6 @@ struct SimState {
     char aux[SIMSTATE_AUX_BYTES];
     struct Order orders[MAX_ORDERS];
     struct Position positions[MAX_POSITIONS];
-    struct PriceCache *priceCache;
     GetPriceFn priceFn;
     long cash;
     int maxActiveOrder;

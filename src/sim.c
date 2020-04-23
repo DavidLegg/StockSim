@@ -30,9 +30,7 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
     unsigned int seed = time(0);
     printf("Seed value: %d\n", seed);
     tsRandInit(seed);
-
-    printf("Initializing TPC...\n");
-    initializeTimePeriodCache();
+    historicalPriceInit();
 
     for (int iter = 0; iter < numIters; ++iter) {
         printf("---=== Iteration %d ===---\n", iter);

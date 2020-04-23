@@ -18,7 +18,6 @@ void initSimState(struct SimState *state, time_t startTime) {
     state->maxActiveOrder = 0;
     state->maxActivePosition = 0;
     state->cash = 0;
-    state->priceCache = NULL;
     state->priceFn = NULL;
     memset(state->aux, 0, SIMSTATE_AUX_BYTES);
 
@@ -48,7 +47,6 @@ void copySimState(struct SimState *dest, struct SimState *src) {
     memcpy(dest->aux, src->aux, SIMSTATE_AUX_BYTES);
     memcpy(dest->orders, src->orders, sizeof(struct Order) * src->maxActiveOrder);
     memcpy(dest->positions, src->positions, sizeof(struct Position) * src->maxActivePosition);
-    dest->priceCache = src->priceCache;
     dest->priceFn = src->priceFn;
     dest->cash = src->cash;
     dest->maxActiveOrder = src->maxActiveOrder;
@@ -59,7 +57,7 @@ void copySimState(struct SimState *dest, struct SimState *src) {
 long worth(struct SimState *state) {
     long worth = state->cash;
     for (int i = 0; i < state->maxActivePosition; ++i) {
-        worth += state->positions[i].quantity * state->priceFn(&(state->positions[i].symbol), state->time, state->priceCache);
+        worth += state->positions[i].quantity * state->priceFn(&(state->positions[i].symbol), state->time);
     }
     return worth;
 }
@@ -80,7 +78,7 @@ void printSimState(struct SimState *state) {
         printf("%sPositions:\n", indent);
         for (int i = 0; i < state->maxActivePosition; ++i) {
             if (state->positions[i].quantity) {
-                positionWorth = state->positions[i].quantity * state->priceFn(&(state->positions[i].symbol), state->time, state->priceCache);
+                positionWorth = state->positions[i].quantity * state->priceFn(&(state->positions[i].symbol), state->time);
                 worth += positionWorth;
                 printf("%s%s%-*.*s x %4.d : $%0.2f\n",
                     indent, indent,
