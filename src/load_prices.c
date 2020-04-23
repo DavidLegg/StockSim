@@ -9,7 +9,6 @@
 // 2^14
 #define TIME_PERIOD_CACHE_SIZE 16384
 #define MAX_PC_THREADS 16
-#define UNUSED_UC -1
 
 // All available names for a data file, with %s indicating ticker symbol.
 // Names listed from most preferred to least
@@ -31,7 +30,7 @@ struct TimePeriod {
     struct TimePeriod *next;
 };
 
-static struct PriceCache *PRICE_CACHES = NULL;
+static struct PriceCache **PRICE_CACHES = NULL;
 static struct TimePeriod TIME_PERIOD_CACHE[TIME_PERIOD_CACHE_SIZE];
 static int TPC_MAX_USED = 0;
 static const char *ALL_SYMBOLS_FILE = "resources/symbols.txt";
@@ -55,7 +54,7 @@ void historicalPriceInit() {
     PRICE_CACHES = malloc(sizeof(*PRICE_CACHES) * MAX_PC_THREADS);
 
     for (int i = 0; i < MAX_PC_THREADS; ++i) {
-        PRICE_CACHES[i].usageCounter = UNUSED_UC;
+        PRICE_CACHES[i] = NULL;
     }
     initializeTimePeriodCache();
 }
@@ -69,14 +68,15 @@ void initializePriceCache(struct PriceCache *priceCache) {
 
 void historicalPriceAddThread(pthread_t tid) {
     int i;
-    for (i = 0; i < MAX_PC_THREADS && PRICE_CACHES[i].usageCounter != UNUSED_UC; ++i) ;
+    for (i = 0; i < MAX_PC_THREADS && PRICE_CACHES[i]; ++i) ;
     if (i >= MAX_PC_THREADS) {
         fprintf(stderr, "Max number of price caches exceeded\n");
         exit(1);
     }
-    
-    initializePriceCache(PRICE_CACHES + i);
-    PRICE_CACHES[i].thread_id = tid;
+
+    PRICE_CACHES[i] = malloc(sizeof(*PRICE_CACHES[i]));
+    initializePriceCache(PRICE_CACHES[i]);
+    PRICE_CACHES[i]->thread_id = tid;
 }
 
 void initializeTimePeriodCache(void) {
@@ -152,9 +152,9 @@ void initializeTimePeriodCache(void) {
 long getHistoricalPrice(const union Symbol *symbol, const time_t time) {
     pthread_t tid = pthread_self();
     int i;
-    for (i = 0; i < MAX_PC_THREADS && PRICE_CACHES[i].usageCounter != UNUSED_UC; ++i) {
-        if (pthread_equal(PRICE_CACHES[i].thread_id, tid)) {
-            return getPriceFromCache(symbol, time, PRICE_CACHES + i);
+    for (i = 0; i < MAX_PC_THREADS && PRICE_CACHES[i]; ++i) {
+        if (pthread_equal(PRICE_CACHES[i]->thread_id, tid)) {
+            return getPriceFromCache(symbol, time, PRICE_CACHES[i]);
         }
     }
     fprintf(stderr, "No price cache initialized for thread %lu\n", tid);
