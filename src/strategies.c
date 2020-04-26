@@ -100,7 +100,7 @@ enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order)
 
     // Calculate desired values for each asset class
     //   and place appropriate orders to achieve them
-    if (buyingPower > args->maxAssetValue) {
+    if (args->maxAssetValue >= 0 && buyingPower > args->maxAssetValue) {
         buyingPower = args->maxAssetValue;
     }
     buyingPower *= REBALANCING_BUFFER_FACTOR;

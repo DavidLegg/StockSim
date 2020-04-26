@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <unistd.h>
 
 #define __USE_XOPEN
 #include <time.h>
@@ -15,24 +16,49 @@
 #include "strategy_testing.h"
 #include "histogram.h"
 
-int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const *argv[])
-{
+static struct Options {
+    int textDemo;  // 1 to run text-based demo of test strategy
+    int graphDemo; // 1 to graph a demo of test strategy
+    int numIters;  // number of random setups
+    int numTests;  // number of random starts per setup
+} OPTIONS = {
+    .textDemo = 0,
+    .graphDemo = 0,
+    .numIters = 100,
+    .numTests = 1000
+};
+
+const char HELP_STR[] =
+    "Usage: stock-sim [options]\n"
+    "    Run a simulation of a stock trading strategy\n"
+    "\n"
+    "Options:\n"
+    "  -I n  Run n iterations, each with randomized starting conditions\n"
+    "  -T n  Run n tests on each iteration, at randomized start times\n"
+    "  -d    Display text log for an example run, rather than doing a full test\n"
+    "  -g    Graph an example run, rather than doing a full test\n"
+    "  -h    Display this help message and exit\n"
+    ;
+
+void parseArgs(int argc, char *argv[]);
+
+int main(int argc, char *argv[]) {
+    parseArgs(argc, argv);
+
     long startCash    = 10000*DOLLAR;
     time_t testLength = 1*YEAR;
     int numSymbols    = 20;
-    int numTests      = 1000;
-    int numIters      = 100;
     int numBins       = 15;
     struct SimState scenarios[2];
     struct SimState *controlState = scenarios, *testState = scenarios + 1;
-    long *resultsDelta = malloc(sizeof(long) * numTests * numIters);
+    long *resultsDelta = malloc(sizeof(long) * OPTIONS.numTests * OPTIONS.numIters);
 
     unsigned int seed = time(0);
     printf("Seed value: %d\n", seed);
     tsRandInit(seed);
     historicalPriceInit();
 
-    for (int iter = 0; iter < numIters; ++iter) {
+    for (int iter = 0; iter < OPTIONS.numIters; ++iter) {
         printf("---=== Iteration %d ===---\n", iter);
         printf("Choosing test time period...\n");
         struct tm structPeriodStart, structPeriodEnd;
@@ -97,23 +123,68 @@ int main(__attribute__ ((unused)) int argc, __attribute__ ((unused)) char const 
         free(symbols);
         symbols = NULL;
 
-        // Execute the test
-        printf("Executing test...\n");
         long *results, *resultsEnd;
-        results = randomizedStartDelta(controlState, testState, numTests, testStart, testEnd, &FinalCashDCS, &resultsEnd);
+        if (OPTIONS.textDemo) {
+            // Do a text demo run of the test strategy and exit
+            printf("Running text demo...\n");
+            testState->time = testStart;
+            historicalPriceAddThread(pthread_self());
+            runScenarioDemo(testState, 100);
+            return 0;
+        } else if (OPTIONS.graphDemo) {
+            // Do a graphed demo run of the test strategy and exit
+            printf("Running graphing demo...\n");
+            testState->time = testStart;
+            historicalPriceAddThread(pthread_self());
+            graphScenario(testState);
+            return 0;
+        } else {
+            // Execute the test
+            printf("Executing test...\n");
+            results = randomizedStartDelta(controlState, testState, OPTIONS.numTests, testStart, testEnd, &FinalCashDCS, &resultsEnd);
+        }
 
         // Process results
-        memcpy(resultsDelta + numTests * iter, results, sizeof(long) * numTests);
+        memcpy(resultsDelta + OPTIONS.numTests * iter, results, sizeof(long) * OPTIONS.numTests);
         free(results);
         resultsEnd = results = NULL;
         printf("Iteration %d Summary:\n", iter);
-        drawHistogram(resultsDelta + numTests * iter, resultsDelta + numTests * (iter + 1), numBins, HF_Currency);
+        drawHistogram(resultsDelta + OPTIONS.numTests * iter, resultsDelta + OPTIONS.numTests * (iter + 1), numBins, HF_Currency);
     }
 
     // Display results
     printf("Summary:\n");
-    drawHistogram(resultsDelta, resultsDelta + numTests * numIters, numBins, HF_Currency);
+    drawHistogram(resultsDelta, resultsDelta + OPTIONS.numTests * OPTIONS.numIters, numBins, HF_Currency);
 
     return 0;
+}
+
+void parseArgs(int argc, char *argv[]) {
+    int opt;
+    while ((opt = getopt(argc, argv, "dgT:I:h")) != -1) {
+        switch (opt) {
+            case 'T':
+                sscanf(optarg, "%d", &OPTIONS.numTests);
+                break;
+            case 'I':
+                sscanf(optarg, "%d", &OPTIONS.numIters);
+                break;
+            case 'd':
+                OPTIONS.textDemo = 1;
+                break;
+            case 'g':
+                OPTIONS.graphDemo = 1;
+                break;
+            case 'h':
+            case '?':
+                printf("%s", HELP_STR);
+                exit(0);
+        }
+    }
+
+    if (OPTIONS.graphDemo && OPTIONS.textDemo) {
+        fprintf(stderr, "Cannot specify text demo and graphing demo. Specify one or the other only.\n");
+        exit(1);
+    }
 }
 
