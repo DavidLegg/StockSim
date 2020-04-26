@@ -14,7 +14,7 @@
 #include "strategies.h"
 #include "batch_execution.h"
 #include "strategy_testing.h"
-#include "histogram.h"
+#include "stats.h"
 
 static struct Options {
     int textDemo;  // 1 to run text-based demo of test strategy
@@ -149,12 +149,13 @@ int main(int argc, char *argv[]) {
         free(results);
         resultsEnd = results = NULL;
         printf("Iteration %d Summary:\n", iter);
-        drawHistogram(resultsDelta + OPTIONS.numTests * iter, resultsDelta + OPTIONS.numTests * (iter + 1), numBins, HF_Currency);
+        drawHistogram(resultsDelta + OPTIONS.numTests * iter, resultsDelta + OPTIONS.numTests * (iter + 1), numBins, SF_Currency);
     }
 
     // Display results
     printf("Summary:\n");
-    drawHistogram(resultsDelta, resultsDelta + OPTIONS.numTests * OPTIONS.numIters, numBins, HF_Currency);
+    drawHistogram(resultsDelta, resultsDelta + OPTIONS.numTests * OPTIONS.numIters, numBins, SF_Currency);
+    printStats(resultsDelta, resultsDelta + OPTIONS.numTests * OPTIONS.numIters, MEAN | STDDEV, SF_Currency);
 
     return 0;
 }
