@@ -123,6 +123,14 @@ int main(int argc, char *argv[]) {
         free(symbols);
         symbols = NULL;
 
+        // Package various arguments together
+        struct RandomizedStartArgs rsArgs;
+        rsArgs.baseScenario = controlState;
+        rsArgs.dcs          = &FinalCashDCS;
+        rsArgs.minStart     = testStart;
+        rsArgs.maxStart     = testEnd;
+        rsArgs.n            = OPTIONS.numTests;
+
         long *results, *resultsEnd;
         if (OPTIONS.textDemo) {
             // Do a text demo run of the test strategy and exit
@@ -141,7 +149,7 @@ int main(int argc, char *argv[]) {
         } else {
             // Execute the test
             printf("Executing test...\n");
-            results = randomizedStartDelta(controlState, testState, OPTIONS.numTests, testStart, testEnd, &FinalCashDCS, &resultsEnd);
+            results = randomizedStartDelta(&rsArgs, testState, &resultsEnd);
         }
 
         // Process results

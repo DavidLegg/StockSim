@@ -5,9 +5,7 @@
 
 enum StatsFormat {SF_Integer, SF_Float, SF_Currency};
 
-// TODO: add constant flags for which stats to print,
-//   that can be |'d together to get combos
-//   Also add the flag param below, and implement.
+// Explicit numbering chosen so that constants can be or'd together
 enum StatType {
     MINMAX = 1,
     MEAN   = 2,
