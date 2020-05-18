@@ -21,7 +21,7 @@ struct DataCollectionSystem {
 };
 
 struct OptimizerMetricSystem {
-    struct DataCollectionSystem dcs;
+    struct RandomizedStartArgs *rsArgs;
     double (*metric)(void *dataStart, void *dataEnd);
 };
 
@@ -62,9 +62,14 @@ double meanMetric_l(void *dataStart, void *dataEnd);
 double stddevMetric_l(void *dataStart, void *dataEnd);
 
 /**
- * 
+ * Do a two-parameter grid test
+ * Results are given as a row-major 2D array, divisions x divisions, with result of metric
  */
-double *grid2Test(struct SimState *(*stateInitFn)(double p1, double p2), double p1Min, double p1Max, double p2Min, double p2Max, int k);
+double *grid2Test(struct SimState *(*stateInitFn)(double p1, double p2), const struct OptimizerMetricSystem *metric, double p1Min, double p1Max, double p2Min, double p2Max, int divisions);
+/**
+ * Consume the output from grid2Test, printing it to the screen in a human-friendly format.
+ */
+void displayGrid2(double *results, double p1Min, double p1Max, double p2Min, double p2Max, int divisions, const char *p1Name, const char *p2Name);
 
 /**
  * Data collection:
