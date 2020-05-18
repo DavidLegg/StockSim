@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 #include "load_prices.h"
@@ -129,7 +130,9 @@ enum OrderStatus randomPortfolioRebalance(struct SimState *state, struct Order *
 
     union Symbol *symbols = randomSymbols(args->numSymbols, state->time, 0);
 
-    struct PortfolioRebalanceArgs *prArgs = (struct PortfolioRebalanceArgs *)makeCustomOrder(state, NULL, 0, portfolioRebalance)->aux;
+    union Symbol prSymbol;
+    strncpy(prSymbol.name, "R-REBAL", SYMBOL_LENGTH);
+    struct PortfolioRebalanceArgs *prArgs = (struct PortfolioRebalanceArgs *)makeCustomOrder(state, &prSymbol, 1, portfolioRebalance)->aux;
     prArgs->symbolsUsed = args->numSymbols;
     prArgs->maxAssetValue = args->maxAssetValue;
     for (int i = 0; i < args->numSymbols; ++i) {
@@ -142,6 +145,9 @@ enum OrderStatus randomPortfolioRebalance(struct SimState *state, struct Order *
     return None;
 }
 
+/**
+ * Calculates standard deviation divided by mean, to normalize
+ */
 double volatility(union Symbol *symbol, time_t start, time_t end, time_t sampleInterval) {
     double mean = 0.0;
     int k = 1;
@@ -156,21 +162,25 @@ double volatility(union Symbol *symbol, time_t start, time_t end, time_t sampleI
         p = getHistoricalPrice(symbol, t);
         meanSquares += (((p - mean) * (p - mean)) - meanSquares) / k;
     }
-    return sqrt(meanSquares);
+    return sqrt(meanSquares) / mean;
 }
 
 enum OrderStatus volatilityPortfolioRebalance(struct SimState *state, struct Order *order) {
     struct VolatilityPortfolioRebalanceArgs *args = (struct VolatilityPortfolioRebalanceArgs *) order->aux;
 
-    struct PortfolioRebalanceArgs *prArgs = (struct PortfolioRebalanceArgs *)makeCustomOrder(state, NULL, 0, portfolioRebalance)->aux;
+    union Symbol prSymbol;
+    strncpy(prSymbol.name, "V-REBAL", SYMBOL_LENGTH);
+    struct PortfolioRebalanceArgs *prArgs = (struct PortfolioRebalanceArgs *)makeCustomOrder(state, &prSymbol, 1, portfolioRebalance)->aux;
     prArgs->maxAssetValue = args->maxAssetValue;
     prArgs->symbolsUsed   = 0;
 
     while (prArgs->symbolsUsed < args->numSymbols) {
         int sampleSize = 3*args->numSymbols;
+        db_printf("State Time: %ld", state->time);
         union Symbol *symbols = randomSymbols(sampleSize, state->time - args->history, state->time);
         for (int i = 0; i < sampleSize && prArgs->symbolsUsed < args->numSymbols; ++i) {
             double v = volatility(symbols + i, state->time - args->history, state->time, args->sampleFrequency);
+            db_printf("Volatility for %.*s: %f", SYMBOL_LENGTH, symbols[i].name, v);
             if (abs(v - args->targetVolatility) < args->epsilon * args->targetVolatility) {
                 prArgs->assets[prArgs->symbolsUsed].id = symbols[i].id;
                 prArgs->weights[prArgs->symbolsUsed] = 1.0 / args->numSymbols;
@@ -211,6 +221,8 @@ union Symbol *randomSymbols(int n, time_t requiredDataStart, time_t requiredData
             (!requiredDataEnd   || end   >= requiredDataEnd  ) ) {
             viableSymbols[numViableSymbols++].id = allSymbols[i].id;
         }
+        // db_printf(" Start: %ld    End: %ld", start, end);
+        // db_printf("RStart: %ld   REnd: %ld", requiredDataStart, requiredDataEnd);
     }
     if (numViableSymbols < n) {
         fprintf(stderr, "Cannot choose %d symbols from %d viable symbols\n", n, numViableSymbols);

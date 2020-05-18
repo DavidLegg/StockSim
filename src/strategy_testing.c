@@ -9,6 +9,7 @@
 
 #include "batch_execution.h"
 #include "rng.h"
+#include "display_tools.h"
 
 #include "strategy_testing.h"
 
@@ -170,6 +171,7 @@ double stddevMetric_l(void *dataStart, void *dataEnd) {
 
 double *grid2Test(struct SimState *(*stateInitFn)(double p1, double p2), const struct OptimizerMetricSystem *metric, double p1Min, double p1Max, double p2Min, double p2Max, int divisions) {
     double *summaries = malloc(sizeof(*summaries) * divisions * divisions);
+    initProgressBar(divisions * divisions);
     for (int k1 = 0; k1 < divisions; ++k1) {
         for (int k2 = 0; k2 < divisions; ++k2) {
             struct SimState *state = stateInitFn(
@@ -180,6 +182,7 @@ double *grid2Test(struct SimState *(*stateInitFn)(double p1, double p2), const s
             void *results = randomizedStart(metric->rsArgs, &resultsEnd);
             summaries[k2 + k1*divisions] = metric->metric(results, resultsEnd);
             free(state);
+            updateProgressBar();
         }
     }
     return summaries;

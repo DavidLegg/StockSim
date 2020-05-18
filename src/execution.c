@@ -69,7 +69,7 @@ void step(struct SimState *state) {
                     } else {
                         db_printf("State time: %ld", state->time);
                         printSimState(state);
-                        fprintf(stderr, "Buy Error - Insufficient cash: Have $%.2f, need $%.2f\n", state->cash / (double)DOLLAR, transactionCost / (double)DOLLAR);
+                        fprintf(stderr, "Buy Error - Insufficient cash to buy %.*s: Have $%.2f, need $%.2f\n", SYMBOL_LENGTH, state->orders[i].symbol.name, state->cash / (double)DOLLAR, transactionCost / (double)DOLLAR);
                         exit(1);
                     }
                     break;

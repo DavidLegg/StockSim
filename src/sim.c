@@ -31,6 +31,7 @@ static struct Options {
     double param1Max;
     double param2Min;
     double param2Max;
+    double volatilityTolerance;
     int divisions;
 } OPTIONS;
 
@@ -43,6 +44,7 @@ const char HELP_STR[] =
     "Options:\n"
     "    -v x    Set minimum target volatility of x\n"
     "    -V x    Set maximum target volatility of x\n"
+    "    -e x    Set tolerance factor on volatility selection to x\n"
     "    -s n    Set minimum of n assets in portfolio\n"
     "    -S n    Set maximum of n assets in portfolio\n"
     "    -T n    Run n tests on each grid cell, at randomized start times\n"
@@ -69,15 +71,19 @@ int main(int argc, char *argv[]) {
     historicalPriceInit();
 
     rsArgs.baseScenario = &BASE_STATE;
-    rsArgs.dcs = &FinalCashDCS;
-    rsArgs.n   = OPTIONS.numTests;
+    rsArgs.dcs          = &FinalCashDCS;
+    rsArgs.n            = OPTIONS.numTests;
+    rsArgs.minStart     = OPTIONS.periodStart;
+    rsArgs.maxStart     = OPTIONS.periodEnd;
 
     initSimState(&BASE_STATE, 0);
     BASE_STATE.priceFn = getHistoricalPrice;
     BASE_STATE.cash    = OPTIONS.startCash;
 
     // Create a time horizon
-    struct TimeHorizonArgs *thArgsControl = (struct TimeHorizonArgs *)makeCustomOrder(&BASE_STATE, NULL, 0, timeHorizon)->aux;
+    union Symbol thSymbol;
+    strncpy(thSymbol.name, "HRZN", SYMBOL_LENGTH);
+    struct TimeHorizonArgs *thArgsControl = (struct TimeHorizonArgs *)makeCustomOrder(&BASE_STATE, &thSymbol, 1, timeHorizon)->aux;
     thArgsControl->offset = OPTIONS.testLength;
     thArgsControl->cutoff = 0;
 
@@ -149,6 +155,7 @@ void initOptions(void) {
     OPTIONS.param1Max        = 0;
     OPTIONS.param2Min        = 0;
     OPTIONS.param2Max        = 0;
+    OPTIONS.volatilityTolerance = 0.1;
     OPTIONS.divisions        = 5;
 
     struct tm structPeriodStart, structPeriodEnd;
@@ -166,13 +173,16 @@ void initOptions(void) {
 void parseArgs(int argc, char *argv[]) {
     initOptions();
     int opt;
-    while ((opt = getopt(argc, argv, "v:V:s:S:T:d:tg")) != -1) {
+    while ((opt = getopt(argc, argv, "u:v:e:r:s:T:d:tg")) != -1) {
         switch (opt) {
             case 'u':
                 sscanf(optarg, "%lf", &OPTIONS.param1Min);
                 break;
             case 'v':
                 sscanf(optarg, "%lf", &OPTIONS.param1Max);
+                break;
+            case 'e':
+                sscanf(optarg, "%lf", &OPTIONS.volatilityTolerance);
                 break;
             case 'r':
                 sscanf(optarg, "%d", &opt);
@@ -211,13 +221,17 @@ struct SimState *stateInit(double p1, double p2) {
     struct SimState *state = malloc(sizeof(*state));
     copySimState(state, &BASE_STATE);
 
-    struct VolatilityPortfolioRebalanceArgs *args = (struct VolatilityPortfolioRebalanceArgs *)makeCustomOrder(state, NULL, 1, volatilityPortfolioRebalance)->aux;
+    union Symbol prSymbol;
+    strncpy(prSymbol.name, "V-REBAL", SYMBOL_LENGTH);
+    struct VolatilityPortfolioRebalanceArgs *args = (struct VolatilityPortfolioRebalanceArgs *)makeCustomOrder(state, &prSymbol, 1, volatilityPortfolioRebalance)->aux;
+    db_printf("Target Volatility: %f", p1);
     args->targetVolatility = p1;
-    args->epsilon          = 0.1;
-    args->history          = 1*YEAR;
+    args->epsilon          = OPTIONS.volatilityTolerance;
+    args->history          = 6*MONTH;
     args->sampleFrequency  = 12*HOUR;
-    args->maxAssetValue    = 0;
+    args->maxAssetValue    = -1; // must be negative to not act as a limit
     args->numSymbols       = (int)p2;
+    db_printf("Number of Symbols: %d", (int)p2);
 
     return state;
 }

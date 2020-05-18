@@ -12,8 +12,11 @@ Examples:
   python3 mk_symbols_file.py resources/*_daily_bars.csv
 """
 
-OUTPUT_FILENAME = 'resources/symbols.txt'
-TIME_COL_NAME = 'Unix Timestamp'
+CORRUPTED_FILENAME = 'resources/corrupted_files.txt'
+OUTPUT_FILENAME    = 'resources/symbols.txt'
+TIME_COL_NAME      = 'Unix Timestamp'
+PRICE_COL_NAME     = 'Close'
+GARBAGE_THRESH     = 5
 
 def main():
     try:
@@ -34,8 +37,10 @@ def main():
     print('Extracting symbol list...')
     # Flatten and filter list of symbols, extracted from filenames using regex
     symbols = {re.fullmatch(p.replace('*', '(.*)'), x).group(1) for p,xs in fns.items() for x in xs}
+    with open(CORRUPTED_FILENAME) as f:
+        symbols.difference_update({line.strip() for line in f})
     total = len(symbols)
-    print('Found {} symbols. Processing for start & end times...')
+    print('Found {} symbols. Processing for start & end times...'.format(total))
     with open(OUTPUT_FILENAME, "w") as f_out:
         print('Symbol,Start Time,End Time', file=f_out)
         for i,sym in enumerate(symbols):
@@ -53,27 +58,48 @@ def main():
 
 def findStartEnd(fn):
     try:
-        timeCol = None
-        start   = None
-        end     = None
+        timeCol  = None
+        priceCol = None
+        start    = None
+        end      = None
+        price    = None
         with open(fn) as f:
-            while timeCol is None:
+            while timeCol is None or priceCol is None:
+                parts = next(f).strip().split(',')
                 try:
-                    parts = next(f).strip().split(',')
                     timeCol = parts.index(TIME_COL_NAME)
+                except ValueError:
+                    pass
+                try:
+                    priceCol = parts.index(PRICE_COL_NAME)
                 except ValueError:
                     pass
             while start is None:
                 try:
                     start = int( next(f).strip().split(',')[timeCol] )
+                    if start > 10000000000:
+                        start = start // 1000
                 except (ValueError, IndexError):
                     pass
             for line in f:
+                parts = line.strip().split(',')
                 try:
-                    end = int( line.strip().split(',')[timeCol] )
+                    end = int( parts[timeCol] )
+                    if end > 10000000000:
+                        end = end // 1000
+                except (ValueError, IndexError):
+                    pass
+                try:
+                    newPrice = int( parts[priceCol] )
+                    if price is not None and (newPrice > GARBAGE_THRESH*price or newPrice*GARBAGE_THRESH < price):
+                        # Data is bad, return none
+                        return None,None
+                    price = newPrice
                 except (ValueError, IndexError):
                     pass
         return start,end
+    except KeyboardInterrupt:
+        exit(1)
     except:
         return None,None
 
