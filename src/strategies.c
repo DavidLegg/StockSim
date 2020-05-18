@@ -142,6 +142,46 @@ enum OrderStatus randomPortfolioRebalance(struct SimState *state, struct Order *
     return None;
 }
 
+double volatility(union Symbol *symbol, time_t start, time_t end, time_t sampleInterval) {
+    double mean = 0.0;
+    int k = 1;
+    for (time_t t = start; t < end; t += sampleInterval, ++k) {
+        mean += (getHistoricalPrice(symbol, t) - mean) / k;
+    }
+
+    double meanSquares = 0.0;
+    long p;
+    k = 1;
+    for (time_t t = start; t < end; t += sampleInterval, ++k) {
+        p = getHistoricalPrice(symbol, t);
+        meanSquares += (((p - mean) * (p - mean)) - meanSquares) / k;
+    }
+    return sqrt(meanSquares);
+}
+
+enum OrderStatus volatilityPortfolioRebalance(struct SimState *state, struct Order *order) {
+    struct VolatilityPortfolioRebalanceArgs *args = (struct VolatilityPortfolioRebalanceArgs *) order->aux;
+
+    struct PortfolioRebalanceArgs *prArgs = (struct PortfolioRebalanceArgs *)makeCustomOrder(state, NULL, 0, portfolioRebalance)->aux;
+    prArgs->maxAssetValue = args->maxAssetValue;
+    prArgs->symbolsUsed   = 0;
+
+    while (prArgs->symbolsUsed < args->numSymbols) {
+        int sampleSize = 3*args->numSymbols;
+        union Symbol *symbols = randomSymbols(sampleSize, state->time - args->history, state->time);
+        for (int i = 0; i < sampleSize && prArgs->symbolsUsed < args->numSymbols; ++i) {
+            double v = volatility(symbols + i, state->time - args->history, state->time, args->sampleFrequency);
+            if (abs(v - args->targetVolatility) < args->epsilon * args->targetVolatility) {
+                prArgs->assets[prArgs->symbolsUsed].id = symbols[i].id;
+                prArgs->weights[prArgs->symbolsUsed] = 1.0 / args->numSymbols;
+                prArgs->symbolsUsed++;
+            }
+        }
+    }
+
+    return None;
+}
+
 enum OrderStatus buyBalanced(struct SimState *state, struct Order *order) {
     struct BuyBalancedArgs *args = (struct BuyBalancedArgs *)order->aux;
     const long value = (long)(args->totalValue * REBALANCING_BUFFER_FACTOR);
