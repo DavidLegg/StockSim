@@ -2,9 +2,9 @@
 #define TEST_STRAT_H
 
 #define JOB_QUEUE_LENGTH 32
+#define NUM_WORKERS 8
 // DEBUG
-// #define NUM_WORKERS 8
-#define NUM_WORKERS 1
+// #define NUM_WORKERS 1
 
 #include <pthread.h>
 #include <semaphore.h>

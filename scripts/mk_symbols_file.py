@@ -40,7 +40,7 @@ def main():
     with open(CORRUPTED_FILENAME) as f:
         symbols.difference_update({line.strip() for line in f})
     total = len(symbols)
-    print('Found {} symbols. Processing for start & end times...'.format(total))
+    print('Found {} symbols. Processing for start & end times... Progress -{:5.1f}%'.format(total, 0.0), end='', flush=True)
     with open(OUTPUT_FILENAME, "w") as f_out:
         print('Symbol,Start Time,End Time', file=f_out)
         for i,sym in enumerate(symbols):
@@ -53,8 +53,9 @@ def main():
                 print('Error reading data files for {}'.format(sym))
             else:
                 print('{},{},{}'.format(sym, start, end), file=f_out)
-            print("  Progress -{:5.1f}%".format(100.0 * i / total))
-    print('Made symbols file "{}" successfully.'.format(OUTPUT_FILENAME))
+            print("\b\b\b\b\b\b{:5.1f}%".format(100.0 * i / total), end='', flush=True)
+
+    print(' - Done.\nMade symbols file "{}" successfully.'.format(OUTPUT_FILENAME))
 
 def findStartEnd(fn):
     try:

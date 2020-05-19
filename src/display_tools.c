@@ -19,9 +19,10 @@ void initProgressBar(int size) {
 
 void updateProgressBar() {
     ++PB_STATUS;
-    int length = PROGRESS_BAR_SIZE * PB_STATUS / PB_DONE;
+    int length = (PROGRESS_BAR_SIZE - 2) * PB_STATUS / PB_DONE;
     for (int i = 0; i < length - 1; ++i) printf("=");
     printf(">");
     for (int i = 0; i < length; ++i) printf("\b");
+    if (PB_STATUS >= PB_DONE) printf("\n");
     fflush(stdout);
 }

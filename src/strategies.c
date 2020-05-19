@@ -176,11 +176,9 @@ enum OrderStatus volatilityPortfolioRebalance(struct SimState *state, struct Ord
 
     while (prArgs->symbolsUsed < args->numSymbols) {
         int sampleSize = 3*args->numSymbols;
-        db_printf("State Time: %ld", state->time);
         union Symbol *symbols = randomSymbols(sampleSize, state->time - args->history, state->time);
         for (int i = 0; i < sampleSize && prArgs->symbolsUsed < args->numSymbols; ++i) {
             double v = volatility(symbols + i, state->time - args->history, state->time, args->sampleFrequency);
-            db_printf("Volatility for %.*s: %f", SYMBOL_LENGTH, symbols[i].name, v);
             if (abs(v - args->targetVolatility) < args->epsilon * args->targetVolatility) {
                 prArgs->assets[prArgs->symbolsUsed].id = symbols[i].id;
                 prArgs->weights[prArgs->symbolsUsed] = 1.0 / args->numSymbols;

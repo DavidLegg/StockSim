@@ -133,8 +133,8 @@ int main(int argc, char *argv[]) {
                 OPTIONS.param2Min,
                 OPTIONS.param2Max,
                 OPTIONS.divisions,
-                "Param 1",
-                "Param 2"
+                "Target Vol.",
+                "Portfolio Size"
             );
         free(results);
     }
@@ -224,14 +224,14 @@ struct SimState *stateInit(double p1, double p2) {
     union Symbol prSymbol;
     strncpy(prSymbol.name, "V-REBAL", SYMBOL_LENGTH);
     struct VolatilityPortfolioRebalanceArgs *args = (struct VolatilityPortfolioRebalanceArgs *)makeCustomOrder(state, &prSymbol, 1, volatilityPortfolioRebalance)->aux;
-    db_printf("Target Volatility: %f", p1);
+    // db_printf("Target Volatility: %f", p1);
     args->targetVolatility = p1;
     args->epsilon          = OPTIONS.volatilityTolerance;
     args->history          = 6*MONTH;
     args->sampleFrequency  = 12*HOUR;
     args->maxAssetValue    = -1; // must be negative to not act as a limit
     args->numSymbols       = (int)p2;
-    db_printf("Number of Symbols: %d", (int)p2);
+    // db_printf("Number of Symbols: %d", (int)p2);
 
     return state;
 }
