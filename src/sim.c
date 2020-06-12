@@ -42,11 +42,11 @@ const char HELP_STR[] =
     "    In particular, run a grid-test of target volatility vs. number of assets in portfolio.\n"
     "\n"
     "Options:\n"
-    "    -v x    Set minimum target volatility of x\n"
-    "    -V x    Set maximum target volatility of x\n"
+    "    -u x    Set minimum target volatility of x\n"
+    "    -v x    Set maximum target volatility of x\n"
     "    -e x    Set tolerance factor on volatility selection to x\n"
-    "    -s n    Set minimum of n assets in portfolio\n"
-    "    -S n    Set maximum of n assets in portfolio\n"
+    "    -r n    Set minimum of n assets in portfolio\n"
+    "    -s n    Set maximum of n assets in portfolio\n"
     "    -T n    Run n tests on each grid cell, at randomized start times\n"
     "    -d n    Use n divisions for each axis of the grid\n"
     "    -t      Display text log for an example run, rather than doing a full test\n"
@@ -173,7 +173,7 @@ void initOptions(void) {
 void parseArgs(int argc, char *argv[]) {
     initOptions();
     int opt;
-    while ((opt = getopt(argc, argv, "u:v:e:r:s:T:d:tg")) != -1) {
+    while ((opt = getopt(argc, argv, "u:v:e:r:s:T:d:tgh")) != -1) {
         switch (opt) {
             case 'u':
                 sscanf(optarg, "%lf", &OPTIONS.param1Min);
