@@ -1,5 +1,7 @@
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
+#include <sched.h>
 
 #include "batch_execution.h"
 #include "rng.h"
@@ -14,25 +16,29 @@ void initJobQueue(void) {
 
     historicalPriceInit();
 
+    initJQStateQueue(&JOB_QUEUE.open);
+    initJQStateQueue(&JOB_QUEUE.ready);
+    initJQStateQueue(&JOB_QUEUE.done);
     for (int i = 0; i < JOB_QUEUE_LENGTH; ++i) {
-        JOB_QUEUE.scenarios[i] = NULL;
-        JOB_QUEUE.results[i]   = NULL;
+        pushJQState(&JOB_QUEUE.open, JOB_QUEUE.dataSlots + i);
     }
     sem_init(&JOB_QUEUE.jobSlotsAvailable, 0, JOB_QUEUE_LENGTH);
     sem_init(&JOB_QUEUE.jobsAvailable, 0, 0);
-    sem_init(&JOB_QUEUE.nextJobLock, 0, 1);
+    sem_init(&JOB_QUEUE.readyLock, 0, 1);
     sem_init(&JOB_QUEUE.resultSlotsAvailable, 0, JOB_QUEUE_LENGTH);
     sem_init(&JOB_QUEUE.resultsAvailable, 0, 0);
-    sem_init(&JOB_QUEUE.nextResultSlotLock, 0, 1);
-    JOB_QUEUE.nextJobSlot = JOB_QUEUE.nextJob = 0;
-    JOB_QUEUE.nextResultSlot = JOB_QUEUE.nextResult = 0;
+    sem_init(&JOB_QUEUE.doneLock, 0, 1);
 
     pthread_t thread;
+    cpu_set_t cpu_set;
     for (int i = 0; i < NUM_WORKERS; ++i) {
         if (pthread_create(&thread, NULL, runJobs, NULL)) {
             fprintf(stderr, "Error creating thread pool.\n");
             exit(1);
         }
+        CPU_ZERO(&cpu_set);
+        CPU_SET(i % NUM_CPUS, &cpu_set);
+        pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpu_set);
         tsRandAddThread(thread);
         historicalPriceAddThread(thread);
     }
@@ -40,18 +46,43 @@ void initJobQueue(void) {
 }
 
 void addJob(struct SimState *scenario) {
+    // When room is available, copy into a data slot and push a reference to the ready queue
     sem_wait(&JOB_QUEUE.jobSlotsAvailable);
-    JOB_QUEUE.scenarios[JOB_QUEUE.nextJobSlot] = scenario;
-    JOB_QUEUE.nextJobSlot = (JOB_QUEUE.nextJobSlot + 1) % JOB_QUEUE_LENGTH;
+    struct SimState *dataSlot = popJQState(&JOB_QUEUE.open);
+    db_printf("Pop %ld from open", dataSlot - JOB_QUEUE.dataSlots);
+    copySimState(dataSlot, scenario);
+    pushJQState(&JOB_QUEUE.ready, dataSlot);
+    db_printf("Push %ld to ready", dataSlot - JOB_QUEUE.dataSlots);
     sem_post(&JOB_QUEUE.jobsAvailable);
 }
 
-struct SimState *getJobResult() {
+void getJobResult(void (*resultHandler)(struct SimState *)) {
     sem_wait(&JOB_QUEUE.resultsAvailable);
-    struct SimState *result = JOB_QUEUE.results[JOB_QUEUE.nextResult];
-    JOB_QUEUE.nextResult = (JOB_QUEUE.nextResult + 1) % JOB_QUEUE_LENGTH;
+    struct SimState *dataSlot = popJQState(&JOB_QUEUE.done);
     sem_post(&JOB_QUEUE.resultSlotsAvailable);
-    return result;
+    db_printf("Pop %ld from done", dataSlot - JOB_QUEUE.dataSlots);
+    resultHandler(dataSlot);
+    pushJQState(&JOB_QUEUE.open, dataSlot);
+    db_printf("Push %ld to open", dataSlot - JOB_QUEUE.dataSlots);
+    sem_post(&JOB_QUEUE.jobSlotsAvailable);
+}
+
+void initJQStateQueue(struct JQStateQueue *queue) {
+    for (int i = 0; i < JOB_QUEUE_LENGTH; ++i) queue->slots[i] = NULL;
+    queue->front = 0;
+    queue->back  = 0;
+}
+
+void pushJQState(struct JQStateQueue *queue, struct SimState *state) {
+    queue->slots[queue->front] = state;
+    queue->front = (queue->front + 1) % JOB_QUEUE_LENGTH;
+}
+
+struct SimState *popJQState(struct JQStateQueue *queue) {
+    struct SimState *state = queue->slots[queue->back];
+    queue->slots[queue->back] = NULL; // DEBUG
+    queue->back = (queue->back + 1) % JOB_QUEUE_LENGTH;
+    return state;
 }
 
 // Add GCC unused attribute to stop GCC complaining
@@ -61,120 +92,21 @@ void *runJobs(__attribute__ ((unused)) void *dummy) {
     while (1) {
         // Acquire next job
         sem_wait(&JOB_QUEUE.jobsAvailable);
-        sem_wait(&JOB_QUEUE.nextJobLock);
-        scenario = JOB_QUEUE.scenarios[JOB_QUEUE.nextJob];
-        JOB_QUEUE.nextJob = (JOB_QUEUE.nextJob + 1) % JOB_QUEUE_LENGTH;
-        sem_post(&JOB_QUEUE.nextJobLock);
-        sem_post(&JOB_QUEUE.jobSlotsAvailable);
+        sem_wait(&JOB_QUEUE.readyLock);
+        scenario = popJQState(&JOB_QUEUE.ready);
+        db_printf("Pop %ld from ready", scenario - JOB_QUEUE.dataSlots);
+        sem_post(&JOB_QUEUE.readyLock);
 
         // Execute job
         runScenario(scenario);
 
         // Post result
         sem_wait(&JOB_QUEUE.resultSlotsAvailable);
-        sem_wait(&JOB_QUEUE.nextResultSlotLock);
-        JOB_QUEUE.results[JOB_QUEUE.nextResultSlot] = scenario;
-        JOB_QUEUE.nextResultSlot = (JOB_QUEUE.nextResultSlot + 1) % JOB_QUEUE_LENGTH;
-        sem_post(&JOB_QUEUE.nextResultSlotLock);
+        sem_wait(&JOB_QUEUE.doneLock);
+        pushJQState(&JOB_QUEUE.done, scenario);
+        db_printf("Push %ld to done", scenario - JOB_QUEUE.dataSlots);
+        sem_post(&JOB_QUEUE.doneLock);
         sem_post(&JOB_QUEUE.resultsAvailable);
     }
     return NULL;
 }
-
-struct runTimesArgs {
-    struct SimState *slots[JOB_QUEUE_LENGTH];
-    sem_t slotsAvailable;
-    long numberScenarios;
-};
-
-void *runTimesResults(void *voidArgs) {
-    struct runTimesArgs *args = (struct runTimesArgs*)voidArgs;
-    long resultsCollected = 0;
-    struct SimState *scenario;
-    while (resultsCollected < args->numberScenarios) {
-        scenario = getJobResult();
-        **(long**)(scenario->aux) = scenario->cash;
-        args->slots[resultsCollected % JOB_QUEUE_LENGTH] = scenario;
-        sem_post(&(args->slotsAvailable));
-        ++resultsCollected;
-        if (resultsCollected % 100 == 0) {
-            printf("%ld/%ld (%.0f%%)\n", resultsCollected, args->numberScenarios, 100.0 * resultsCollected / args->numberScenarios);
-        }
-    }
-    return NULL;
-}
-
-long *runTimes(
-    struct SimState *baseScenario,
-    time_t startTime,
-    time_t endTime,
-    long skipSeconds,
-    long **array_end) {
-    struct runTimesArgs args;
-    args.numberScenarios = 1 + (endTime - startTime) / skipSeconds;
-    long *results = malloc(sizeof(long) * args.numberScenarios);
-    *array_end = results + args.numberScenarios;
-    struct SimState scenarios[JOB_QUEUE_LENGTH];
-    int nextAvailable = 0;
-    sem_init(&(args.slotsAvailable), 0, JOB_QUEUE_LENGTH);
-    pthread_t resultsThread;
-
-    // Load up the initial slots
-    for (int i = 0; i < JOB_QUEUE_LENGTH; ++i) {
-        args.slots[i] = scenarios + i;
-    }
-
-    pthread_create(&resultsThread, NULL, runTimesResults, &args);
-
-    // Write jobs into slots as they become available
-    for (long *p = results; startTime <= endTime; startTime += skipSeconds, ++p) {
-        sem_wait(&(args.slotsAvailable));
-        copySimState(args.slots[nextAvailable], baseScenario);
-        args.slots[nextAvailable]->time = startTime;
-        *(long**)args.slots[nextAvailable]->aux = p;
-        addJob(args.slots[nextAvailable]);
-        nextAvailable = (nextAvailable + 1) % JOB_QUEUE_LENGTH;
-    }
-
-    return (pthread_join(resultsThread, NULL) ? NULL : results);
-}
-
-long *runTimesMulti(
-    struct SimState *baseScenarios,
-    int n,
-    time_t startTime,
-    time_t endTime,
-    long skipSeconds,
-    int *numberTimes) {
-
-    struct runTimesArgs args;
-    *numberTimes = 1 + (endTime - startTime) / skipSeconds;
-    args.numberScenarios = n * (*numberTimes);
-    long *results = malloc(sizeof(int) * args.numberScenarios);
-    struct SimState scenarios[JOB_QUEUE_LENGTH];
-    int nextAvailable = 0;
-    sem_init(&(args.slotsAvailable), 0, JOB_QUEUE_LENGTH);
-    pthread_t resultsThread;
-
-    // Load up the initial slots
-    for (int i = 0; i < JOB_QUEUE_LENGTH; ++i) {
-        args.slots[i] = scenarios + i;
-    }
-
-    pthread_create(&resultsThread, NULL, runTimesResults, &args);
-
-    // Write jobs into slots as they become available
-    for (long *p = results; startTime <= endTime; startTime += skipSeconds, ++p) {
-        for (int i = 0; i < n; ++i) {
-            sem_wait(&(args.slotsAvailable));
-            copySimState(args.slots[nextAvailable], baseScenarios + i);
-            args.slots[nextAvailable]->time = startTime;
-            *(long**)args.slots[nextAvailable]->aux = p + i * (*numberTimes);
-            addJob(args.slots[nextAvailable]);
-            nextAvailable = (nextAvailable + 1) % JOB_QUEUE_LENGTH;
-        }
-    }
-
-    return (pthread_join(resultsThread, NULL) ? NULL : results);
-}
-

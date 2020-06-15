@@ -59,8 +59,8 @@ enum OrderStatus meanReversion(struct SimState *state, struct Order *order);
 // Start by setting up a "desired balance" of assets.
 // At each time step, buys and sells each asset as necessary to get back to that balance.
 // If maxAssetValue is non-negative, will allocate no more than that amount into the market at each step.
-#define REBALANCING_MAX_SYMBOLS 32
-#define REBALANCING_BUFFER_FACTOR 0.98
+#define REBALANCING_MAX_SYMBOLS 128
+#define REBALANCING_BUFFER_FACTOR 0.95
 struct PortfolioRebalanceArgs {
     union Symbol assets[REBALANCING_MAX_SYMBOLS];
     double weights[REBALANCING_MAX_SYMBOLS];

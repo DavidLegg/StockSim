@@ -27,7 +27,7 @@ struct rsResultsArgs {
 void *randomizedStartCollectResults(void *args) {
     struct rsResultsArgs *rsArgs = (struct rsResultsArgs *)args;
     while (rsArgs->n > 0) {
-        rsArgs->dcs->collect(getJobResult());
+        getJobResult(rsArgs->dcs->collect);
         --(rsArgs->n);
     }
     return NULL;
@@ -41,18 +41,15 @@ void *randomizedStart(struct RandomizedStartArgs *args, void **resultsEnd) {
     pthread_t resultThread;
     pthread_create(&resultThread, NULL, randomizedStartCollectResults, resultsArgs);
 
-    struct SimState *scenarios = malloc(sizeof(*scenarios) * args->n);
-    // This memset should be unnecessary; the scenarios in use
-    //   should be init'd by the copySimState call below
-    memset(scenarios, 0, sizeof(*scenarios) * args->n);
+    struct SimState *state = malloc(sizeof(*state));
+    copySimState(state, args->baseScenario);
     for (int i = 0; i < args->n; ++i) {
-        copySimState(scenarios + i, args->baseScenario);
-        scenarios[i].time = args->minStart + (time_t)( tsRand() * (double)(args->maxStart - args->minStart) / RAND_MAX );
-        addJob(scenarios + i);
+        state->time = args->minStart + (time_t)( tsRand() * (double)(args->maxStart - args->minStart) / RAND_MAX );
+        addJob(state);
     }
 
     pthread_join(resultThread, NULL);
-    free(scenarios);
+    free(state);
     free(resultsArgs);
 
     void *tempOutEnd;
@@ -77,10 +74,7 @@ void **randomizedStartComparison(struct RandomizedStartArgs *args, int numScenar
     initJobQueue();
 
     pthread_t resultThread;
-    struct SimState *scenarios = malloc(sizeof(*scenarios) * args->n);
-    // This memset should be unnecessary; the scenarios in use
-    //   should be init'd by the copySimState call below
-    memset(scenarios, 0, sizeof(*scenarios) * args->n);
+    struct SimState *state = malloc(sizeof(*state));
     void *tempOut, *tempOutEnd;
     int sz;
     struct rsResultsArgs *resultsArgs = malloc(sizeof(*resultsArgs));
@@ -90,10 +84,10 @@ void **randomizedStartComparison(struct RandomizedStartArgs *args, int numScenar
         // Set up results collection
         pthread_create(&resultThread, NULL, randomizedStartCollectResults, resultsArgs);
         // Submit all jobs, using baseScenarios[j] and startTimes
+        copySimState(state, args->baseScenario + j);
         for (int i = 0; i < args->n; ++i) {
-            copySimState(scenarios + i, args->baseScenario + j);
-            scenarios[i].time = startTimes[i];
-            addJob(scenarios + i);
+            state->time = startTimes[i];
+            addJob(state);
         }
         // Allocate array for results, store in output[j]
         pthread_join(resultThread, NULL);
@@ -106,7 +100,7 @@ void **randomizedStartComparison(struct RandomizedStartArgs *args, int numScenar
     }
 
     free(resultsArgs);
-    free(scenarios);
+    free(state);
     *resultEnds = outputEnds;
     return output;
 }

@@ -111,7 +111,7 @@ enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order)
     // Calculate amount to buy/sell as difference between
     //   desired and current values, divided by price per unit of asset
     for (int i = 0; i < args->symbolsUsed; ++i) {
-        values[i] = (long)floor( ((buyingPower * args->weights[i]) - (double)values[i]) / currentPrices[i] );
+        values[i] = (currentPrices[i] ? (long)floor( ((buyingPower * args->weights[i]) - (double)values[i]) / currentPrices[i] ) : 0);
         if (values[i] < 0) {
             sell(state, args->assets + i, -values[i]);
         }

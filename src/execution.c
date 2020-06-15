@@ -158,6 +158,9 @@ struct Order *sell(struct SimState *state, union Symbol *symbol, int quantity) {
         fprintf(stderr, "No more orders available.\n");
         exit(1);
     }
+    if (quantity == 0) {
+        db_printf("Attempt to sell %.*s x 0", SYMBOL_LENGTH, symbol->name);
+    }
     state->orders[state->maxActiveOrder].status    = Active;
     state->orders[state->maxActiveOrder].type      = Sell;
     state->orders[state->maxActiveOrder].symbol.id = symbol->id;

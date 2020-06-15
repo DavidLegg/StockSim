@@ -258,10 +258,6 @@ long getPriceFromCache(const union Symbol *symbol, const time_t time, struct Pri
 }
 
 void loadHistoricalPrice(struct Prices *p, const time_t time) {
-    if ((!strcmp(p->symbol.name, "ETH") && time >= 841699225) ||
-        (!strcmp(p->symbol.name, "LTC") && time >= 914815844)) {
-        db_printf("%.*s at %ld", SYMBOL_LENGTH, p->symbol.name, time);
-    }
     const int bufSize = 256;
     char buf[bufSize];
     memset(buf, 0, bufSize);
@@ -372,7 +368,7 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
 
     fclose(fp);
     p->validRows = loadedRows;
-    db_printf("loadHistoricalPrice(%.*s, %ld) -> %ld", SYMBOL_LENGTH, p->symbol.name, time, loadedRows);
+    // db_printf("loadHistoricalPrice(%.*s, %ld) -> %ld", SYMBOL_LENGTH, p->symbol.name, time, loadedRows);
 }
 
 // Hoare partition quicksort, as described at https://en.wikipedia.org/wiki/Quicksort#Hoare_partition_scheme
