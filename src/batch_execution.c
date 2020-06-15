@@ -49,10 +49,8 @@ void addJob(struct SimState *scenario) {
     // When room is available, copy into a data slot and push a reference to the ready queue
     sem_wait(&JOB_QUEUE.jobSlotsAvailable);
     struct SimState *dataSlot = popJQState(&JOB_QUEUE.open);
-    db_printf("Pop %ld from open", dataSlot - JOB_QUEUE.dataSlots);
     copySimState(dataSlot, scenario);
     pushJQState(&JOB_QUEUE.ready, dataSlot);
-    db_printf("Push %ld to ready", dataSlot - JOB_QUEUE.dataSlots);
     sem_post(&JOB_QUEUE.jobsAvailable);
 }
 
@@ -60,10 +58,8 @@ void getJobResult(void (*resultHandler)(struct SimState *)) {
     sem_wait(&JOB_QUEUE.resultsAvailable);
     struct SimState *dataSlot = popJQState(&JOB_QUEUE.done);
     sem_post(&JOB_QUEUE.resultSlotsAvailable);
-    db_printf("Pop %ld from done", dataSlot - JOB_QUEUE.dataSlots);
     resultHandler(dataSlot);
     pushJQState(&JOB_QUEUE.open, dataSlot);
-    db_printf("Push %ld to open", dataSlot - JOB_QUEUE.dataSlots);
     sem_post(&JOB_QUEUE.jobSlotsAvailable);
 }
 
@@ -94,7 +90,6 @@ void *runJobs(__attribute__ ((unused)) void *dummy) {
         sem_wait(&JOB_QUEUE.jobsAvailable);
         sem_wait(&JOB_QUEUE.readyLock);
         scenario = popJQState(&JOB_QUEUE.ready);
-        db_printf("Pop %ld from ready", scenario - JOB_QUEUE.dataSlots);
         sem_post(&JOB_QUEUE.readyLock);
 
         // Execute job
@@ -104,7 +99,6 @@ void *runJobs(__attribute__ ((unused)) void *dummy) {
         sem_wait(&JOB_QUEUE.resultSlotsAvailable);
         sem_wait(&JOB_QUEUE.doneLock);
         pushJQState(&JOB_QUEUE.done, scenario);
-        db_printf("Push %ld to done", scenario - JOB_QUEUE.dataSlots);
         sem_post(&JOB_QUEUE.doneLock);
         sem_post(&JOB_QUEUE.resultsAvailable);
     }

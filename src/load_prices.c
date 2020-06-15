@@ -368,7 +368,6 @@ void loadHistoricalPrice(struct Prices *p, const time_t time) {
 
     fclose(fp);
     p->validRows = loadedRows;
-    // db_printf("loadHistoricalPrice(%.*s, %ld) -> %ld", SYMBOL_LENGTH, p->symbol.name, time, loadedRows);
 }
 
 // Hoare partition quicksort, as described at https://en.wikipedia.org/wiki/Quicksort#Hoare_partition_scheme

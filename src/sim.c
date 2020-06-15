@@ -32,7 +32,8 @@ static struct Options {
     double param2Min;
     double param2Max;
     double volatilityTolerance;
-    int divisions;
+    int divisions1;
+    int divisions2;
 } OPTIONS;
 
 const char HELP_STR[] =
@@ -48,7 +49,8 @@ const char HELP_STR[] =
     "    -r n    Set minimum of n assets in portfolio\n"
     "    -s n    Set maximum of n assets in portfolio\n"
     "    -T n    Run n tests on each grid cell, at randomized start times\n"
-    "    -d n    Use n divisions for each axis of the grid\n"
+    "    -c n    Use n divisions for first axis of the grid\n"
+    "    -d n    Use n divisions for second axis of the grid\n"
     "    -t      Display text log for an example run, rather than doing a full test\n"
     "    -g      Graph an example run, rather than doing a full test\n"
     "    -h      Display this help message and exit\n"
@@ -124,7 +126,8 @@ int main(int argc, char *argv[]) {
                 OPTIONS.param1Max,
                 OPTIONS.param2Min,
                 OPTIONS.param2Max,
-                OPTIONS.divisions
+                OPTIONS.divisions1,
+                OPTIONS.divisions2
             );
         displayGrid2(
                 results,
@@ -132,7 +135,8 @@ int main(int argc, char *argv[]) {
                 OPTIONS.param1Max,
                 OPTIONS.param2Min,
                 OPTIONS.param2Max,
-                OPTIONS.divisions,
+                OPTIONS.divisions1,
+                OPTIONS.divisions2,
                 "Target Vol.",
                 "Portfolio Size"
             );
@@ -156,7 +160,8 @@ void initOptions(void) {
     OPTIONS.param2Min        = 0;
     OPTIONS.param2Max        = 0;
     OPTIONS.volatilityTolerance = 0.1;
-    OPTIONS.divisions        = 5;
+    OPTIONS.divisions1       = 5;
+    OPTIONS.divisions2       = 5;
 
     struct tm structPeriodStart, structPeriodEnd;
     strptime("1/1/1981 00:00", "%m/%d/%Y%n%H:%M", &structPeriodStart);
@@ -173,7 +178,7 @@ void initOptions(void) {
 void parseArgs(int argc, char *argv[]) {
     initOptions();
     int opt;
-    while ((opt = getopt(argc, argv, "u:v:e:r:s:T:d:tgh")) != -1) {
+    while ((opt = getopt(argc, argv, "u:v:e:r:s:T:c:d:tgh")) != -1) {
         switch (opt) {
             case 'u':
                 sscanf(optarg, "%lf", &OPTIONS.param1Min);
@@ -195,8 +200,11 @@ void parseArgs(int argc, char *argv[]) {
             case 'T':
                 sscanf(optarg, "%d", &OPTIONS.numTests);
                 break;
+            case 'c':
+                sscanf(optarg, "%d", &OPTIONS.divisions1);
+                break;
             case 'd':
-                sscanf(optarg, "%d", &OPTIONS.divisions);
+                sscanf(optarg, "%d", &OPTIONS.divisions2);
                 break;
             case 't':
                 OPTIONS.textDemo = 1;
@@ -224,14 +232,12 @@ struct SimState *stateInit(double p1, double p2) {
     union Symbol prSymbol;
     strncpy(prSymbol.name, "V-REBAL", SYMBOL_LENGTH);
     struct VolatilityPortfolioRebalanceArgs *args = (struct VolatilityPortfolioRebalanceArgs *)makeCustomOrder(state, &prSymbol, 1, volatilityPortfolioRebalance)->aux;
-    // db_printf("Target Volatility: %f", p1);
     args->targetVolatility = p1;
     args->epsilon          = OPTIONS.volatilityTolerance;
     args->history          = 6*MONTH;
     args->sampleFrequency  = 12*HOUR;
     args->maxAssetValue    = -1; // must be negative to not act as a limit
     args->numSymbols       = (int)p2;
-    // db_printf("Number of Symbols: %d", (int)p2);
 
     return state;
 }

@@ -163,18 +163,18 @@ double stddevMetric_l(void *dataStart, void *dataEnd) {
     return sqrt(meanSquares);
 }
 
-double *grid2Test(struct SimState *(*stateInitFn)(double p1, double p2), const struct OptimizerMetricSystem *metric, double p1Min, double p1Max, double p2Min, double p2Max, int divisions) {
-    double *summaries = malloc(sizeof(*summaries) * divisions * divisions);
-    initProgressBar(divisions * divisions);
-    for (int k1 = 0; k1 < divisions; ++k1) {
-        for (int k2 = 0; k2 < divisions; ++k2) {
+double *grid2Test(struct SimState *(*stateInitFn)(double p1, double p2), const struct OptimizerMetricSystem *metric, double p1Min, double p1Max, double p2Min, double p2Max, int divisions1, int divisions2) {
+    double *summaries = malloc(sizeof(*summaries) * divisions1 * divisions2);
+    initProgressBar(divisions1 * divisions2);
+    for (int k1 = 0; k1 < divisions1; ++k1) {
+        for (int k2 = 0; k2 < divisions2; ++k2) {
             struct SimState *state = stateInitFn(
-                p1Min + (p1Max - p1Min) * k1 / (divisions - 1),
-                p2Min + (p2Max - p2Min) * k2 / (divisions - 1));
+                (divisions1 > 1 ? p1Min + (p1Max - p1Min) * k1 / (divisions1 - 1) : p1Min),
+                (divisions2 > 1 ? p2Min + (p2Max - p2Min) * k2 / (divisions2 - 1) : p2Min));
             metric->rsArgs->baseScenario = state;
             void *resultsEnd;
             void *results = randomizedStart(metric->rsArgs, &resultsEnd);
-            summaries[k2 + k1*divisions] = metric->metric(results, resultsEnd);
+            summaries[k2 + k1*divisions2] = metric->metric(results, resultsEnd);
             free(state);
             updateProgressBar();
         }
@@ -182,54 +182,57 @@ double *grid2Test(struct SimState *(*stateInitFn)(double p1, double p2), const s
     return summaries;
 }
 
-void displayGrid2(double *results, double p1Min, double p1Max, double p2Min, double p2Max, int divisions, const char *p1Name, const char *p2Name) {
+void displayGrid2(double *results, double p1Min, double p1Max, double p2Min, double p2Max, int divisions1, int divisions2, const char *p1Name, const char *p2Name) {
     char buf[PG2_DISPLAY_WIDTH];
     snprintf(buf, PG2_LABEL_WIDTH, "%.2f", (p2Min + p2Max) / 2);
     int tempLen = strlen(buf);
     int i;
 
-    int cellWidth = (PG2_DISPLAY_WIDTH - PG2_LABEL_WIDTH) / divisions;
+    int cellWidth = (PG2_DISPLAY_WIDTH - PG2_LABEL_WIDTH) / divisions2;
     double mn, mx;
     mn = mx = *results;
-    for (i = 1; i < divisions * divisions; ++i) {
+    for (i = 1; i < divisions1 * divisions2; ++i) {
         if (results[i] < mn) mn = results[i];
         else if (results[i] > mx) mx = results[i];
     }
 
     // Print header rows
-    printf("%*s%s\n", PG2_LABEL_WIDTH, "", p2Name);
+    printf("%s vs. %s\n  Min: %*.2f\n  Max: %*.2f\n%*s%s\n",
+        p1Name, p2Name,
+        PG2_LABEL_WIDTH, mn, PG2_LABEL_WIDTH, mx,
+        PG2_LABEL_WIDTH, "", p2Name);
     printf("%*s%-*.2f%s%*.2f\n",
         PG2_LABEL_WIDTH, "",
         (PG2_DISPLAY_WIDTH - PG2_LABEL_WIDTH - tempLen) / 2, p2Min,
         buf,
-        (divisions*cellWidth) - ((PG2_DISPLAY_WIDTH - PG2_LABEL_WIDTH - tempLen) / 2), p2Max);
+        (divisions2*cellWidth) - ((PG2_DISPLAY_WIDTH - PG2_LABEL_WIDTH - tempLen) / 2), p2Max);
     for (i = 0; i < cellWidth; ++i) buf[i] = '-';
     buf[i] = '\0';
     printf("%-*s", PG2_LABEL_WIDTH, p1Name);
-    for (i = 0; i < divisions; ++i) printf("+%s", buf);
+    for (i = 0; i < divisions2; ++i) printf("+%s", buf);
     printf("+\n");
 
     // Print data rows
-    for (int rowNum = 0; rowNum < divisions; ++rowNum) {
+    for (int rowNum = 0; rowNum < divisions1; ++rowNum) {
         // Print label
         if (rowNum == 0) {
             printf("%*.2f ", PG2_LABEL_WIDTH - 1, p1Min);
-        } else if (rowNum == divisions - 1) {
+        } else if (rowNum == divisions1 - 1) {
             printf("%*.2f ", PG2_LABEL_WIDTH - 1, p1Max);
-        } else if (rowNum == divisions / 2) {
+        } else if (rowNum == divisions1 / 2) {
             printf("%*.2f ", PG2_LABEL_WIDTH - 1, (p1Min + p1Max) / 2);
         } else {
             printf("%*s", PG2_LABEL_WIDTH, "");
         }
 
-        for (int colNum = 0; colNum < divisions; ++colNum) {
-            tempLen = (int) ( round( cellWidth * (results[colNum + divisions*rowNum] - mn) / (mx - mn) ) );
+        for (int colNum = 0; colNum < divisions2; ++colNum) {
+            tempLen = (int) ( round( cellWidth * (results[colNum + divisions2*rowNum] - mn) / (mx - mn) ) );
             printf("|");
             for (i = 0; i < tempLen - 1; ++i) printf("=");
             printf(">%*s", cellWidth - i - 1, "");
         }
         printf("|\n%*s", PG2_LABEL_WIDTH, "");
-        for (i = 0; i < divisions; ++i) printf("+%s", buf);
+        for (i = 0; i < divisions2; ++i) printf("+%s", buf);
         printf("+\n");
     }
 }

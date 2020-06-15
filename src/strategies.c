@@ -219,8 +219,6 @@ union Symbol *randomSymbols(int n, time_t requiredDataStart, time_t requiredData
             (!requiredDataEnd   || end   >= requiredDataEnd  ) ) {
             viableSymbols[numViableSymbols++].id = allSymbols[i].id;
         }
-        // db_printf(" Start: %ld    End: %ld", start, end);
-        // db_printf("RStart: %ld   REnd: %ld", requiredDataStart, requiredDataEnd);
     }
     if (numViableSymbols < n) {
         fprintf(stderr, "Cannot choose %d symbols from %d viable symbols\n", n, numViableSymbols);
