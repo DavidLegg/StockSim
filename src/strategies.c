@@ -203,7 +203,7 @@ enum OrderStatus meanPricePortfolioRebalance(struct SimState *state, struct Orde
     struct MeanPricePortfolioRebalanceArgs *args = (struct MeanPricePortfolioRebalanceArgs *) order->aux;
 
     union Symbol prSymbol;
-    strncpy(prSymbol.name, "V-REBAL", SYMBOL_LENGTH);
+    strncpy(prSymbol.name, "MP-REBAL", SYMBOL_LENGTH);
     struct PortfolioRebalanceArgs *prArgs = (struct PortfolioRebalanceArgs *)makeCustomOrder(state, &prSymbol, 1, portfolioRebalance)->aux;
     prArgs->maxAssetValue = args->maxAssetValue;
     prArgs->symbolsUsed   = 0;

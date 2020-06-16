@@ -3,7 +3,8 @@
 
 enum CLA_Type {
     CLA_FLAG, // toggles a boolean (int) when flag is seen (doesn't take argument)
-    CLA_INT, CLA_LONG, CLA_FLOAT, CLA_DOUBLE // sets value as given on command line (takes argument)
+    CLA_INT, CLA_LONG, CLA_FLOAT, CLA_DOUBLE, // sets value as given on command line (takes argument)
+    CLA_DOLLAR // interprets float-formatted dollar amount on command line, sets long (internal money format)
 };
 
 struct CommandLineArg {

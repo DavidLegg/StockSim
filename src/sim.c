@@ -30,17 +30,19 @@ static struct Options {
     time_t periodEnd;
     double param1Min;
     double param1Max;
+    long   param1MinInt;
+    long   param1MaxInt;
     double param2Min;
     double param2Max;
     int    param2MinInt;
     int    param2MaxInt;
-    double volatilityTolerance;
+    double epsilon;
     int divisions1;
     int divisions2;
 } OPTIONS;
 
-const char param1Name[] = "Target Volatility";
-const char param2Name[] = "Number Assets";
+const char param1Name[] = "Target Price";
+const char param2Name[] = "Portfolio Size";
 struct SimState BASE_STATE;
 struct RandomizedStartArgs rsArgs;
 
@@ -91,10 +93,10 @@ int main(int argc, char *argv[]) {
     } else if (OPTIONS.graphDemo) {
         // Do a graphed demo run of the test strategy and exit
         printf("Running graphing demo...\n");
-        struct SimState *state = stateInit(
-                (OPTIONS.param1Min + OPTIONS.param1Max) / 2,
-                (OPTIONS.param2Min + OPTIONS.param2Max) / 2
-            );
+        double p1 = (OPTIONS.param1Min + OPTIONS.param1Max) / 2;
+        double p2 = (OPTIONS.param2Min + OPTIONS.param2Max) / 2;
+        printf("  %s: %.2lf\n  %s: %.2lf\n", param1Name, p1, param2Name, p2);
+        struct SimState *state = stateInit(p1, p2);
         state->time = OPTIONS.periodStart + (time_t)( tsRand() * (double)(OPTIONS.periodEnd - OPTIONS.periodStart) / RAND_MAX );
         historicalPriceAddThread(pthread_self());
         graphScenario(state);
@@ -120,8 +122,8 @@ int main(int argc, char *argv[]) {
                 OPTIONS.param2Max,
                 OPTIONS.divisions1,
                 OPTIONS.divisions2,
-                "Target Vol.",
-                "Portfolio Size"
+                param1Name,
+                param2Name
             );
         free(results);
     }
@@ -140,11 +142,13 @@ void initOptions(void) {
     OPTIONS.testLength       = 1*YEAR;
     OPTIONS.param1Min        = 0;
     OPTIONS.param1Max        = 0;
+    OPTIONS.param1MinInt     = 0;
+    OPTIONS.param1MaxInt     = 0;
     OPTIONS.param2Min        = 0;
     OPTIONS.param2Max        = 0;
     OPTIONS.param2MinInt     = 0;
     OPTIONS.param2MaxInt     = 0;
-    OPTIONS.volatilityTolerance = 0.1;
+    OPTIONS.epsilon          = 0.1;
     OPTIONS.divisions1       = 5;
     OPTIONS.divisions2       = 5;
 
@@ -165,75 +169,75 @@ void initParser(void) {
 
     addUsageLine("stock-sim [options]");
     addSummary("Run a simulation of a stock trading strategy\n"
-        "In particular, run a grid-test of target volatility vs. number of assets in portfolio.");
+        "In particular, run a grid-test of target price vs. number of assets in portfolio.");
     
-    cla.description = "Set minimum target volatility of x";
-    cla.parameter   = 'x';
-    cla.shortName   = 'u';
-    cla.type        = CLA_DOUBLE;
-    cla.valuePtr.dptr = &OPTIONS.param1Min;
+    cla.description   = "Set minimum target price of x";
+    cla.parameter     = 'x';
+    cla.shortName     = 'u';
+    cla.type          = CLA_DOLLAR;
+    cla.valuePtr.lptr = &OPTIONS.param1MinInt;
     addArg(&cla);
 
-    cla.description = "Set maximum target volatility of x";
-    cla.parameter   = 'x';
-    cla.shortName   = 'v';
-    cla.type        = CLA_DOUBLE;
-    cla.valuePtr.dptr = &OPTIONS.param1Max;
+    cla.description   = "Set maximum target price of x";
+    cla.parameter     = 'x';
+    cla.shortName     = 'v';
+    cla.type          = CLA_DOLLAR;
+    cla.valuePtr.lptr = &OPTIONS.param1MaxInt;
     addArg(&cla);
 
-    cla.description = "Set tolerance factor on volatility selection to x";
-    cla.parameter   = 'x';
-    cla.shortName   = 'e';
-    cla.type        = CLA_DOUBLE;
-    cla.valuePtr.dptr = &OPTIONS.volatilityTolerance;
+    cla.description   = "Set tolerance factor on price selection to x";
+    cla.parameter     = 'x';
+    cla.shortName     = 'e';
+    cla.type          = CLA_DOUBLE;
+    cla.valuePtr.dptr = &OPTIONS.epsilon;
     addArg(&cla);
 
-    cla.description = "Set minimum of n assets in portfolio";
-    cla.parameter   = 'n';
-    cla.shortName   = 'r';
-    cla.type        = CLA_INT;
+    cla.description   = "Set minimum of n assets in portfolio";
+    cla.parameter     = 'n';
+    cla.shortName     = 'r';
+    cla.type          = CLA_INT;
     cla.valuePtr.iptr = &OPTIONS.param2MinInt;
     addArg(&cla);
 
-    cla.description = "Set maximum of n assets in portfolio";
-    cla.parameter   = 'n';
-    cla.shortName   = 's';
-    cla.type        = CLA_INT;
+    cla.description   = "Set maximum of n assets in portfolio";
+    cla.parameter     = 'n';
+    cla.shortName     = 's';
+    cla.type          = CLA_INT;
     cla.valuePtr.iptr = &OPTIONS.param2MaxInt;
     addArg(&cla);
 
-    cla.description = "Run n tests on each grid cell, at randomized start times";
-    cla.parameter   = 'n';
-    cla.shortName   = 'T';
-    cla.type        = CLA_INT;
+    cla.description   = "Run n tests on each grid cell, at randomized start times";
+    cla.parameter     = 'n';
+    cla.shortName     = 'T';
+    cla.type          = CLA_INT;
     cla.valuePtr.iptr = &OPTIONS.numTests;
     addArg(&cla);
 
-    cla.description = "Use n divisions on volatility";
-    cla.parameter   = 'n';
-    cla.shortName   = 'c';
-    cla.type        = CLA_INT;
+    cla.description   = "Use n divisions on price";
+    cla.parameter     = 'n';
+    cla.shortName     = 'c';
+    cla.type          = CLA_INT;
     cla.valuePtr.iptr = &OPTIONS.divisions1;
     addArg(&cla);
 
-    cla.description = "Use n divisions on number of assets in portfolio";
-    cla.parameter   = 'n';
-    cla.shortName   = 'd';
-    cla.type        = CLA_INT;
+    cla.description   = "Use n divisions on number of assets in portfolio";
+    cla.parameter     = 'n';
+    cla.shortName     = 'd';
+    cla.type          = CLA_INT;
     cla.valuePtr.iptr = &OPTIONS.divisions2;
     addArg(&cla);
 
-    cla.description = "Display text log for an example run, rather than doing a full test";
-    cla.parameter   = 0;
-    cla.shortName   = 't';
-    cla.type        = CLA_FLAG;
+    cla.description   = "Display text log for an example run, rather than doing a full test";
+    cla.parameter     = 0;
+    cla.shortName     = 't';
+    cla.type          = CLA_FLAG;
     cla.valuePtr.iptr = &OPTIONS.textDemo;
     addArg(&cla);
 
-    cla.description = "Graph an example run, rather than doing a full test";
-    cla.parameter   = 0;
-    cla.shortName   = 'g';
-    cla.type        = CLA_FLAG;
+    cla.description   = "Graph an example run, rather than doing a full test";
+    cla.parameter     = 0;
+    cla.shortName     = 'g';
+    cla.type          = CLA_FLAG;
     cla.valuePtr.iptr = &OPTIONS.graphDemo;
     addArg(&cla);
 }
@@ -242,6 +246,8 @@ void parseArgs(int argc, char *argv[]) {
     initOptions();
     initParser();
     parseCommandLineArgs(argc, argv);
+    OPTIONS.param1Min = (double)OPTIONS.param1MinInt;
+    OPTIONS.param1Max = (double)OPTIONS.param1MaxInt;
     OPTIONS.param2Min = (double)OPTIONS.param2MinInt;
     OPTIONS.param2Max = (double)OPTIONS.param2MaxInt;
 
@@ -258,9 +264,9 @@ struct SimState *stateInit(double p1, double p2) {
 
     union Symbol prSymbol;
     strncpy(prSymbol.name, "V-REBAL", SYMBOL_LENGTH);
-    struct VolatilityPortfolioRebalanceArgs *args = (struct VolatilityPortfolioRebalanceArgs *)makeCustomOrder(state, &prSymbol, 1, volatilityPortfolioRebalance)->aux;
-    args->targetVolatility = p1;
-    args->epsilon          = OPTIONS.volatilityTolerance;
+    struct MeanPricePortfolioRebalanceArgs *args = (struct MeanPricePortfolioRebalanceArgs *)makeCustomOrder(state, &prSymbol, 1, meanPricePortfolioRebalance)->aux;
+    args->targetPrice      = p1;
+    args->epsilon          = OPTIONS.epsilon;
     args->history          = 6*MONTH;
     args->sampleFrequency  = 12*HOUR;
     args->maxAssetValue    = -1; // must be negative to not act as a limit

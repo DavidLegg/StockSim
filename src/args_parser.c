@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "types.h"
 #include "args_parser.h"
 
 #define MAX_CLA_ARGS 64
@@ -61,6 +62,13 @@ void parseCommandLineArgs(int argc, char *argv[]) {
                         break;
                     case CLA_DOUBLE:
                         sscanf(optarg, "%lf", CL_ARGS[i].valuePtr.dptr);
+                        break;
+                    case CLA_DOLLAR:
+                        {
+                            double temp;
+                            sscanf(optarg, "%lf", &temp);
+                            *(CL_ARGS[i].valuePtr.lptr) = (long)(temp*DOLLAR);
+                        }
                         break;
                     default:
                         fprintf(stderr, "Unknown CLA type\n");

@@ -106,7 +106,7 @@ struct MeanPricePortfolioRebalanceArgs {
     int numSymbols;
 };
 BOUND_SIZE(struct MeanPricePortfolioRebalanceArgs,ORDER_AUX_BYTES);
-enum OrderStatus volatilityPortfolioRebalance(struct SimState *state, struct Order *order);
+enum OrderStatus meanPricePortfolioRebalance(struct SimState *state, struct Order *order);
 
 // Buy-Balanced: Buy Strategy
 // Buys approximately totalValue, split among assets according to weights
