@@ -15,6 +15,7 @@
 #include "batch_execution.h"
 #include "strategy_testing.h"
 #include "stats.h"
+#include "args_parser.h"
 
 static struct Options {
     int textDemo;  // 1 to run text-based demo of test strategy
@@ -31,30 +32,12 @@ static struct Options {
     double param1Max;
     double param2Min;
     double param2Max;
+    int    param2MinInt;
+    int    param2MaxInt;
     double volatilityTolerance;
     int divisions1;
     int divisions2;
 } OPTIONS;
-
-const char HELP_STR[] =
-    "Usage: stock-sim [options]\n"
-    "    Run a simulation of a stock trading strategy\n"
-    "\n"
-    "    In particular, run a grid-test of target volatility vs. number of assets in portfolio.\n"
-    "\n"
-    "Options:\n"
-    "    -u x    Set minimum target volatility of x\n"
-    "    -v x    Set maximum target volatility of x\n"
-    "    -e x    Set tolerance factor on volatility selection to x\n"
-    "    -r n    Set minimum of n assets in portfolio\n"
-    "    -s n    Set maximum of n assets in portfolio\n"
-    "    -T n    Run n tests on each grid cell, at randomized start times\n"
-    "    -c n    Use n divisions for first axis of the grid\n"
-    "    -d n    Use n divisions for second axis of the grid\n"
-    "    -t      Display text log for an example run, rather than doing a full test\n"
-    "    -g      Graph an example run, rather than doing a full test\n"
-    "    -h      Display this help message and exit\n"
-    ;
 
 const char param1Name[] = "Target Volatility";
 const char param2Name[] = "Number Assets";
@@ -159,6 +142,8 @@ void initOptions(void) {
     OPTIONS.param1Max        = 0;
     OPTIONS.param2Min        = 0;
     OPTIONS.param2Max        = 0;
+    OPTIONS.param2MinInt     = 0;
+    OPTIONS.param2MaxInt     = 0;
     OPTIONS.volatilityTolerance = 0.1;
     OPTIONS.divisions1       = 5;
     OPTIONS.divisions2       = 5;
@@ -175,52 +160,94 @@ void initOptions(void) {
     OPTIONS.periodEnd   = mktime(&structPeriodEnd);
 }
 
+void initParser(void) {
+    struct CommandLineArg cla;
+
+    addUsageLine("stock-sim [options]");
+    addSummary("Run a simulation of a stock trading strategy\n"
+        "In particular, run a grid-test of target volatility vs. number of assets in portfolio.");
+    
+    cla.description = "Set minimum target volatility of x";
+    cla.parameter   = 'x';
+    cla.shortName   = 'u';
+    cla.type        = CLA_DOUBLE;
+    cla.valuePtr.dptr = &OPTIONS.param1Min;
+    addArg(&cla);
+
+    cla.description = "Set maximum target volatility of x";
+    cla.parameter   = 'x';
+    cla.shortName   = 'v';
+    cla.type        = CLA_DOUBLE;
+    cla.valuePtr.dptr = &OPTIONS.param1Max;
+    addArg(&cla);
+
+    cla.description = "Set tolerance factor on volatility selection to x";
+    cla.parameter   = 'x';
+    cla.shortName   = 'e';
+    cla.type        = CLA_DOUBLE;
+    cla.valuePtr.dptr = &OPTIONS.volatilityTolerance;
+    addArg(&cla);
+
+    cla.description = "Set minimum of n assets in portfolio";
+    cla.parameter   = 'n';
+    cla.shortName   = 'r';
+    cla.type        = CLA_INT;
+    cla.valuePtr.iptr = &OPTIONS.param2MinInt;
+    addArg(&cla);
+
+    cla.description = "Set maximum of n assets in portfolio";
+    cla.parameter   = 'n';
+    cla.shortName   = 's';
+    cla.type        = CLA_INT;
+    cla.valuePtr.iptr = &OPTIONS.param2MaxInt;
+    addArg(&cla);
+
+    cla.description = "Run n tests on each grid cell, at randomized start times";
+    cla.parameter   = 'n';
+    cla.shortName   = 'T';
+    cla.type        = CLA_INT;
+    cla.valuePtr.iptr = &OPTIONS.numTests;
+    addArg(&cla);
+
+    cla.description = "Use n divisions on volatility";
+    cla.parameter   = 'n';
+    cla.shortName   = 'c';
+    cla.type        = CLA_INT;
+    cla.valuePtr.iptr = &OPTIONS.divisions1;
+    addArg(&cla);
+
+    cla.description = "Use n divisions on number of assets in portfolio";
+    cla.parameter   = 'n';
+    cla.shortName   = 'd';
+    cla.type        = CLA_INT;
+    cla.valuePtr.iptr = &OPTIONS.divisions2;
+    addArg(&cla);
+
+    cla.description = "Display text log for an example run, rather than doing a full test";
+    cla.parameter   = 0;
+    cla.shortName   = 't';
+    cla.type        = CLA_FLAG;
+    cla.valuePtr.iptr = &OPTIONS.textDemo;
+    addArg(&cla);
+
+    cla.description = "Graph an example run, rather than doing a full test";
+    cla.parameter   = 0;
+    cla.shortName   = 'g';
+    cla.type        = CLA_FLAG;
+    cla.valuePtr.iptr = &OPTIONS.graphDemo;
+    addArg(&cla);
+}
+
 void parseArgs(int argc, char *argv[]) {
     initOptions();
-    int opt;
-    while ((opt = getopt(argc, argv, "u:v:e:r:s:T:c:d:tgh")) != -1) {
-        switch (opt) {
-            case 'u':
-                sscanf(optarg, "%lf", &OPTIONS.param1Min);
-                break;
-            case 'v':
-                sscanf(optarg, "%lf", &OPTIONS.param1Max);
-                break;
-            case 'e':
-                sscanf(optarg, "%lf", &OPTIONS.volatilityTolerance);
-                break;
-            case 'r':
-                sscanf(optarg, "%d", &opt);
-                OPTIONS.param2Min = (double)opt;
-                break;
-            case 's':
-                sscanf(optarg, "%d", &opt);
-                OPTIONS.param2Max = (double)opt;
-                break;
-            case 'T':
-                sscanf(optarg, "%d", &OPTIONS.numTests);
-                break;
-            case 'c':
-                sscanf(optarg, "%d", &OPTIONS.divisions1);
-                break;
-            case 'd':
-                sscanf(optarg, "%d", &OPTIONS.divisions2);
-                break;
-            case 't':
-                OPTIONS.textDemo = 1;
-                break;
-            case 'g':
-                OPTIONS.graphDemo = 1;
-                break;
-            case 'h':
-            case '?':
-                printf("%s", HELP_STR);
-                exit(0);
-        }
-    }
+    initParser();
+    parseCommandLineArgs(argc, argv);
+    OPTIONS.param2Min = (double)OPTIONS.param2MinInt;
+    OPTIONS.param2Max = (double)OPTIONS.param2MaxInt;
 
     if (OPTIONS.graphDemo && OPTIONS.textDemo) {
         fprintf(stderr, "Cannot specify text demo and graphing demo. Specify one or the other only.\n");
+        printHelpMessage();
         exit(1);
     }
 }
