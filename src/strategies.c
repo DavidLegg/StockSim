@@ -190,6 +190,40 @@ enum OrderStatus volatilityPortfolioRebalance(struct SimState *state, struct Ord
     return None;
 }
 
+double meanPrice(union Symbol *symbol, time_t start, time_t end, time_t sampleInterval) {
+    double mean = 0.0;
+    int k = 1;
+    for (time_t t = start; t < end; t += sampleInterval, ++k) {
+        mean += (getHistoricalPrice(symbol, t) - mean) / k;
+    }
+    return mean;
+}
+
+enum OrderStatus meanPricePortfolioRebalance(struct SimState *state, struct Order *order) {
+    struct MeanPricePortfolioRebalanceArgs *args = (struct MeanPricePortfolioRebalanceArgs *) order->aux;
+
+    union Symbol prSymbol;
+    strncpy(prSymbol.name, "V-REBAL", SYMBOL_LENGTH);
+    struct PortfolioRebalanceArgs *prArgs = (struct PortfolioRebalanceArgs *)makeCustomOrder(state, &prSymbol, 1, portfolioRebalance)->aux;
+    prArgs->maxAssetValue = args->maxAssetValue;
+    prArgs->symbolsUsed   = 0;
+
+    while (prArgs->symbolsUsed < args->numSymbols) {
+        int sampleSize = 3*args->numSymbols;
+        union Symbol *symbols = randomSymbols(sampleSize, state->time - args->history, state->time);
+        for (int i = 0; i < sampleSize && prArgs->symbolsUsed < args->numSymbols; ++i) {
+            double p = meanPrice(symbols + i, state->time - args->history, state->time, args->sampleFrequency);
+            if (abs(p - args->targetPrice) < args->epsilon * args->targetPrice) {
+                prArgs->assets[prArgs->symbolsUsed].id = symbols[i].id;
+                prArgs->weights[prArgs->symbolsUsed] = 1.0 / args->numSymbols;
+                prArgs->symbolsUsed++;
+            }
+        }
+    }
+
+    return None;
+}
+
 enum OrderStatus buyBalanced(struct SimState *state, struct Order *order) {
     struct BuyBalancedArgs *args = (struct BuyBalancedArgs *)order->aux;
     const long value = (long)(args->totalValue * REBALANCING_BUFFER_FACTOR);

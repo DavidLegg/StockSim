@@ -94,6 +94,20 @@ struct VolatilityPortfolioRebalanceArgs {
 BOUND_SIZE(struct VolatilityPortfolioRebalanceArgs,ORDER_AUX_BYTES);
 enum OrderStatus volatilityPortfolioRebalance(struct SimState *state, struct Order *order);
 
+// Mean Price-chosen Portfolio Rebalancing: Buy/Sell Strategy
+// Starts by selecting random stocks with mean price within +/- epsilon of targetPrice
+// Measures mean price over history length of time before now, sampling at sampleFrequency
+struct MeanPricePortfolioRebalanceArgs {
+    double targetPrice;
+    double epsilon;
+    time_t history;
+    time_t sampleFrequency;
+    long maxAssetValue;
+    int numSymbols;
+};
+BOUND_SIZE(struct MeanPricePortfolioRebalanceArgs,ORDER_AUX_BYTES);
+enum OrderStatus volatilityPortfolioRebalance(struct SimState *state, struct Order *order);
+
 // Buy-Balanced: Buy Strategy
 // Buys approximately totalValue, split among assets according to weights
 // Equivalent to first round of PortfolioRebalancing.
