@@ -80,6 +80,8 @@ enum OrderStatus meanReversion(struct SimState *state, struct Order *order) {
 
 enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order) {
     long currentPrices[REBALANCING_MAX_SYMBOLS];
+    int  quantities[REBALANCING_MAX_SYMBOLS];
+    int  changeQuantities[REBALANCING_MAX_SYMBOLS];
     long values[REBALANCING_MAX_SYMBOLS];
     long buyingPower = state->cash;
 
@@ -89,10 +91,12 @@ enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order)
     //   and tally total available value
     for (int i = 0; i < args->symbolsUsed; ++i) {
         currentPrices[i] = state->priceFn(args->assets + i, state->time);
+        quantities[i] = 0;
         values[i] = 0;
         for (int j = 0; j < state->maxActivePosition; ++j) {
             if (state->positions[j].symbol.id == args->assets[i].id) {
-                values[i] = state->positions[j].quantity * currentPrices[i];
+                quantities[i] = state->positions[j].quantity;
+                values[i]     = quantities[i] * currentPrices[i];
                 break;
             }
         }
@@ -108,17 +112,15 @@ enum OrderStatus portfolioRebalance(struct SimState *state, struct Order *order)
 
     // Place all sell orders first, then place all buy orders
     // That way, the money from the sell orders can cover the buys
-    // Calculate amount to buy/sell as difference between
-    //   desired and current values, divided by price per unit of asset
     for (int i = 0; i < args->symbolsUsed; ++i) {
-        values[i] = (currentPrices[i] ? (long)floor( ((buyingPower * args->weights[i]) - (double)values[i]) / currentPrices[i] ) : 0);
-        if (values[i] < 0) {
-            sell(state, args->assets + i, -values[i]);
+        changeQuantities[i] = (currentPrices[i] ? (int)floor( (buyingPower * args->weights[i]) / currentPrices[i] ) : 0) - quantities[i];
+        if (changeQuantities[i] < 0) {
+            sell(state, args->assets + i, -changeQuantities[i]);
         }
     }
     for (int i = 0; i < args->symbolsUsed; ++i) {
-        if (values[i] > 0) {
-            buy(state, args->assets + i, values[i]);
+        if (changeQuantities[i] > 0) {
+            buy(state, args->assets + i, changeQuantities[i]);
         }
     }
 
@@ -174,16 +176,36 @@ enum OrderStatus volatilityPortfolioRebalance(struct SimState *state, struct Ord
     prArgs->maxAssetValue = args->maxAssetValue;
     prArgs->symbolsUsed   = 0;
 
+    int attempts = 0;
+    int duplicate;
+
     while (prArgs->symbolsUsed < args->numSymbols) {
         int sampleSize = 3*args->numSymbols;
         union Symbol *symbols = randomSymbols(sampleSize, state->time - args->history, state->time);
         for (int i = 0; i < sampleSize && prArgs->symbolsUsed < args->numSymbols; ++i) {
+            duplicate = 0;
+            for (int j = 0; j < prArgs->symbolsUsed; ++j) {
+                if (symbols[i].id == prArgs->assets[j].id) {
+                    duplicate = 1;
+                    break;
+                }
+            }
+            if (duplicate) continue;
+
             double v = volatility(symbols + i, state->time - args->history, state->time, args->sampleFrequency);
             if (abs(v - args->targetVolatility) < args->epsilon * args->targetVolatility) {
                 prArgs->assets[prArgs->symbolsUsed].id = symbols[i].id;
                 prArgs->weights[prArgs->symbolsUsed] = 1.0 / args->numSymbols;
                 prArgs->symbolsUsed++;
             }
+        }
+        free(symbols);
+        ++attempts;
+        if (attempts > 10) {
+            fprintf(stderr, "Failed 10 attempts to compile %d assets with volatility %.1lf%% +/- %.0lf%%, time %ld\n",
+                args->numSymbols, args->targetVolatility*100, args->epsilon*100, state->time
+                );
+            exit(1);
         }
     }
 
@@ -208,16 +230,38 @@ enum OrderStatus meanPricePortfolioRebalance(struct SimState *state, struct Orde
     prArgs->maxAssetValue = args->maxAssetValue;
     prArgs->symbolsUsed   = 0;
 
+    int attempts = 0;
+    int duplicate;
+
     while (prArgs->symbolsUsed < args->numSymbols) {
-        int sampleSize = 3*args->numSymbols;
+        int sampleSize = 5*args->numSymbols;
         union Symbol *symbols = randomSymbols(sampleSize, state->time - args->history, state->time);
         for (int i = 0; i < sampleSize && prArgs->symbolsUsed < args->numSymbols; ++i) {
+            duplicate = 0;
+            for (int j = 0; j < prArgs->symbolsUsed; ++j) {
+                if (symbols[i].id == prArgs->assets[j].id) {
+                    duplicate = 1;
+                    break;
+                }
+            }
+            if (duplicate) {
+                continue;
+            }
+
             double p = meanPrice(symbols + i, state->time - args->history, state->time, args->sampleFrequency);
             if (abs(p - args->targetPrice) < args->epsilon * args->targetPrice) {
                 prArgs->assets[prArgs->symbolsUsed].id = symbols[i].id;
                 prArgs->weights[prArgs->symbolsUsed] = 1.0 / args->numSymbols;
                 prArgs->symbolsUsed++;
             }
+        }
+        free(symbols);
+        ++attempts;
+        if (attempts > 10) {
+            fprintf(stderr, "Failed 10 attempts to compile %d assets with mean price $%.2lf +/- %.0lf%%, time %ld\n",
+                args->numSymbols, args->targetPrice/(double)DOLLAR, args->epsilon*100, state->time
+                );
+            exit(1);
         }
     }
 

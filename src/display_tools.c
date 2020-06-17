@@ -3,7 +3,7 @@
 
 #include "display_tools.h"
 
-#define PROGRESS_BAR_SIZE 80
+#define PROGRESS_BAR_SIZE 100
 static int PB_TARGET;
 static int PB_STATUS;
 static int PB_LENGTH;

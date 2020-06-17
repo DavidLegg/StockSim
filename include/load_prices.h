@@ -5,7 +5,7 @@
 
 #include "types.h"
 
-#define PRICE_SERIES_LENGTH 16384
+#define PRICE_SERIES_LENGTH 8192
 #define PRICE_CACHE_ENTRIES 512
 
 /**

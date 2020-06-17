@@ -29,6 +29,7 @@ void runScenarioDemo(struct SimState *state, int waitTimeMs) {
         step(state);
     }
     printSimState(state);
+    fflush(stdout);
 }
 
 void graphScenario(struct SimState *state) {

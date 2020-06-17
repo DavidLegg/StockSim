@@ -6,7 +6,6 @@
 
 #include "load_prices.h"
 
-// 2^14
 #define TIME_PERIOD_CACHE_SIZE 16384
 #define MAX_PC_THREADS 16
 

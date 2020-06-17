@@ -11,10 +11,13 @@ CFLAGS := $(LINK) -Wall -Wextra -pedantic $(INC)
 SRCFILES := $(shell find $(SRCDIR) -type f -name *.c)
 OBJFILES := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCFILES))
 
-.PHONY: clean makedirs debug perf all run
-.SUBLIME_TARGETS: all debug perf run clean
+.PHONY: clean makedirs debug perf all tsan
+.SUBLIME_TARGETS: all debug perf clean tsan
 
 all: makedirs $(EXEC)
+
+tsan: CFLAGS += -fsanitize=thread
+tsan: debug
 
 debug: CFLAGS += -g -DDEBUG
 debug: all
@@ -35,8 +38,3 @@ $(EXEC): $(OBJFILES)
 	$(CC) $^ -o $(BINDIR)/$@ $(CFLAGS)
 	@echo "---=== COMPILE SUCCESS ===---"
 
-run: all
-	$(BINDIR)/$(EXEC)
-
-db_run: debug
-	gdb -tui $(BINDIR)/$(EXEC)

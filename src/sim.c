@@ -153,10 +153,10 @@ void initOptions(void) {
     OPTIONS.divisions2       = 5;
 
     struct tm structPeriodStart, structPeriodEnd;
-    strptime("1/1/1981 00:00", "%m/%d/%Y%n%H:%M", &structPeriodStart);
+    strptime("1/1/1995 00:00", "%m/%d/%Y%n%H:%M", &structPeriodStart);
     structPeriodStart.tm_isdst = -1;
     structPeriodStart.tm_sec   = 0;
-    strptime("1/1/2000 00:00", "%m/%d/%Y%n%H:%M", &structPeriodEnd);
+    strptime("1/1/2005 00:00", "%m/%d/%Y%n%H:%M", &structPeriodEnd);
     structPeriodEnd.tm_isdst = -1;
     structPeriodEnd.tm_sec   = 0;
 
@@ -263,11 +263,11 @@ struct SimState *stateInit(double p1, double p2) {
     copySimState(state, &BASE_STATE);
 
     union Symbol prSymbol;
-    strncpy(prSymbol.name, "V-REBAL", SYMBOL_LENGTH);
+    strncpy(prSymbol.name, "MP-REBAL", SYMBOL_LENGTH);
     struct MeanPricePortfolioRebalanceArgs *args = (struct MeanPricePortfolioRebalanceArgs *)makeCustomOrder(state, &prSymbol, 1, meanPricePortfolioRebalance)->aux;
     args->targetPrice      = p1;
     args->epsilon          = OPTIONS.epsilon;
-    args->history          = 6*MONTH;
+    args->history          = 1*MONTH;
     args->sampleFrequency  = 12*HOUR;
     args->maxAssetValue    = -1; // must be negative to not act as a limit
     args->numSymbols       = (int)p2;
